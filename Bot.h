@@ -16,8 +16,6 @@ struct Bot
 
     void makeMoves();   //makes moves for a single turn
     void endTurn();     //indicates to the engine that it has made its moves
-
-	
 };
 
 #endif //BOT_H_

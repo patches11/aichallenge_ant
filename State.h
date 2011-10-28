@@ -44,6 +44,7 @@ struct State
     int64_t seed;
 
     std::vector<std::vector<Square> > grid;
+	std::vector<std::vector<Square> > gridNextTurn;
     std::vector<Location> enemyAnts, myHills, enemyHills, food;
 	std::vector<Ant> myAnts;
     std::map<Location, Ant> antsMap;
@@ -71,7 +72,7 @@ struct State
 	int locDistance(const Location &loc1, const Location &loc2);
 	int modDistance(int m, int x, int y);
 
-	std::vector<Location> validNeighbors(const Location &loc);
+	std::vector<Location> validNeighbors(const Location &current, const Location &start);
 
     void updateVisionInformation();
 
@@ -87,9 +88,29 @@ struct State
 
 	bool passable(const Location &loc);
 
-	Location randomLocation(Location origin, int distance);
+	Location randomLocation(Location origin, int min, int distance) ;
 
-	int randomWithNeg(int distance);
+	int randomWithNeg(int min, int distance);
+
+	bool passableNextTurn(const Location &loc);
+
+	void setAntQueue(Ant &a, std::list<Location> q);
+
+	bool isOnMyHill(const Location &current);
+
+	bool xAwayFromMyHill(int dis, Location current);
+
+	// Action functions
+
+	bool checkDestinations(std::vector<Location> destinations, Location destination);
+
+	void getFoods(std::vector<Ant*> &ants, std::list<Location> &food, int maxDistance);
+
+	void killHills(std::vector<Ant*> &ants, std::vector<Location> &hills, int maxDistance);
+
+	void explore(Ant &ant, int mExpDis, int maxExpDis);
+
+	void goExplore(std::vector<Ant*> &ants, int mExpDis, int maxExpDis);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);

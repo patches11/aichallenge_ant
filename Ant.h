@@ -5,6 +5,8 @@
 
 #include "Location.h"
 
+const std::string CROLES[4] = {"Explore","Food","Attack"};
+
 /*
     struct for representing ants.
 */
@@ -12,6 +14,7 @@ struct Ant
 {
 	std::list<Location> queue;
     Location loc;
+	int role;
 
 	Ant()
     {
@@ -20,7 +23,20 @@ struct Ant
     Ant(Location l)
     {
         loc = l;
+		role = -1;
     };
+
+	void setExplore() {
+		role = 0;
+	}
+
+	void setFood() {
+		role = 1;
+	}
+
+	void setAttack() {
+		role = 2;
+	}
 
 	void updateQueue() {
 		loc = queue.front();
@@ -30,9 +46,21 @@ struct Ant
 	bool idle() {
 		return queue.empty();
 	}
+
+	bool exploring() {
+		return (!queue.empty() && role == 0);
+	}
 	
 	Location destination() {
-		queue.back();
+		if (idle())
+			return loc;
+		return queue.back();
+	}
+
+	Location positionNextTurn() {
+		if (idle())
+			return loc;
+		return queue.front();
 	}
 };
 

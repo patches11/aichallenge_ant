@@ -2,7 +2,8 @@
 
 using namespace std;
 
-#define exploreDistance 5
+#define exploreDistance 15
+#define minExploreDistance 3
 
 //constructor
 Bot::Bot()
@@ -32,64 +33,75 @@ void Bot::makeMoves()
 {
     state.bug << "turn " << state.turn << ":" << endl;
     state.bug << state << endl;
-    
-    int antIndex = 0;
 
-    //get foood
-    for(int food=0; food<(int)state.food.size(); food++)
-    {
-    	if (antIndex >= (int)state.myAnts.size() || !state.myAnts[antIndex].idle())
-    		break;
-    			
-		list<Location> path = state.bfs(state.myAnts[antIndex].loc, state.food[food]);
-		
-		if (! path.empty())
-		{
+	vector<Location> destinations;
 
-			#ifdef DEBUG
-				list<Location>::iterator it;
-				state.bug << "food path: ";
-				for ( it=path.begin() ; it != path.end(); it++ )
-					state.bug << *it << " ";
-				state.bug << endl;
-			#endif
+	for (int i = 0;i<(int)state.myAnts.size();i++) {
+		if (!state.myAnts[i].idle())
+			destinations.push_back(state.myAnts[i].destination());
+	}
 
-			path.pop_front();
+	vector<Ant*> idleAnts;
 
-			state.myAnts[antIndex].queue = path;
+	for(int i = 0;i<(int)state.myAnts.size();i++){
+		if (state.myAnts[i].idle())
+			idleAnts.push_back(&state.myAnts[i]);
+	}
+
+	vector<Ant*> exploringAnts;
+
+	for(int i = 0;i<(int)state.myAnts.size();i++){
+		if (state.myAnts[i].exploring())
+			exploringAnts.push_back(&state.myAnts[i]);
+	}
+
+	list<Location> idleFoods;
+
+	for(int i = 0;i<(int)state.food.size();i++){
+		if (!state.checkDestinations(destinations, state.food[i]))
+			idleFoods.push_back(state.food[i]);
+	}
+
+	state.bug << "getting close food with exploring ants" << endl;
+	state.getFoods(exploringAnts, idleFoods, 4);
+
+	state.bug << "getting food with idle ants" << endl;
+    state.getFoods(idleAnts, idleFoods, 30);
+
+	state.bug << "killing hills with idle ants" << endl;
+	state.killHills(idleAnts, state.enemyHills, 0);
+
+	state.bug << "exploring with remaining ants" << endl;
+	state.goExplore(idleAnts, minExploreDistance, exploreDistance);
+
+	//If ants are going to collide next turn then re-route to destination
+	for (int i = 0;i<(int)state.myAnts.size();i++) {
+		if (state.myAnts[i].idle() && state.isOnMyHill(state.myAnts[i].loc)) {
+			state.explore(state.myAnts[i], 4, 6);
 		}
-        
-        antIndex++;
-    }
+		for (int j = i+1;j<(int)state.myAnts.size();j++)
+			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {
+				if (state.myAnts[j].idle()) {
+					state.bug << "reseting route because of collision, ant at: " << state.myAnts[i].loc << " other ant at " << state.myAnts[j].loc << endl;
+					state.bug << "locations next turn: " << state.myAnts[i].positionNextTurn() << " other ant at " << state.myAnts[j].positionNextTurn() << endl;
+					
+					list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].destination());
 
-	//explore with additional ants if we have any
-	for(;antIndex<(int)state.myAnts.size();antIndex++) {
-		if (!state.myAnts[antIndex].idle())
-    		break;
+					path.pop_front();
 
-		Location antLoc = state.myAnts[antIndex].loc;
+					state.setAntQueue(state.myAnts[i], path);
 
-		Location exploreDest = state.randomLocation(state.myAnts[antIndex].loc,exploreDistance);
+					break;
+				} else {
+					state.bug << "reseting route because of collision, ant at: " << state.myAnts[j].loc << " other ant at " << state.myAnts[i].loc << endl;
+					state.bug << "locations next turn: " << state.myAnts[j].positionNextTurn() << " other ant at " << state.myAnts[i].positionNextTurn() << endl;
+					list<Location> path = state.bfs(state.myAnts[j].loc, state.myAnts[j].destination());
 
-		state.bug << "exploring from " << antLoc << " to " << exploreDest  << endl;
+					path.pop_front();
 
-		list<Location> path = state.bfs(antLoc, exploreDest);
-
-		if (! path.empty())
-		{
-
-			#ifdef DEBUG
-				list<Location>::iterator it;
-				state.bug << "explore path: ";
-				for ( it=path.begin() ; it != path.end(); it++ )
-					state.bug << *it << " ";
-				state.bug << endl;
-			#endif
-
-			path.pop_front();
-
-			state.myAnts[antIndex].queue = path;
-		}
+					state.setAntQueue(state.myAnts[j], path);
+				}
+			}
 	}
 
     state.bug << "time taken: " << state.timer.getTime() << "ms" << endl << endl;

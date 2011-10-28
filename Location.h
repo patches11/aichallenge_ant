@@ -35,7 +35,7 @@ struct Location
 
 	friend bool operator== (Location first, Location second)
 	{
-		if (first.row == second.row && first.row == second.row)
+		if (first.row == second.row && first.col == second.col)
 			return true;
 		return false;
 	}

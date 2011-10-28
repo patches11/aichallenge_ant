@@ -20,17 +20,28 @@ State::~State()
 void State::setup()
 {
     grid = vector<vector<Square> >(rows, vector<Square>(cols, Square()));
+	gridNextTurn = vector<vector<Square> >(rows, vector<Square>(cols, Square()));
 };
 
-Location State::randomLocation(Location origin, int distance) {
-	Location loc = Location((origin.row + randomWithNeg(distance) + rows) % rows, (origin.col +  randomWithNeg(distance) +cols) % cols);
-	if (passable(loc))
+Location State::randomLocation(Location origin, int min, int distance) {
+	Location loc = Location((origin.row + randomWithNeg(min, distance) + rows) % rows,
+							(origin.col + randomWithNeg(min, distance) + cols) % cols);
+	if (passable(loc) && xAwayFromMyHill(4,loc))
 		return loc;
-	return randomLocation(origin, distance);
+	return randomLocation(origin, min, distance);
 }
 
-int State::randomWithNeg(int distance) {
-	return (rand() % (2*distance)) - distance;
+bool State::xAwayFromMyHill(int dis, Location current) {
+	for(int i = 0;i<(int)myHills.size();i++)
+		if(locDistance(myHills[i],current) <= dis)
+			return false;
+	return true;
+}
+
+int State::randomWithNeg(int min, int distance) {
+	int r = (rand() % (2*distance)) - distance;
+	r += (r >= 0) ? min : (-min);
+	return r;
 }
 
 //resets all non-water squares to land and clears the bots ant vector
@@ -47,8 +58,10 @@ void State::reset()
     food.clear();
     for(int row=0; row<rows; row++)
         for(int col=0; col<cols; col++)
-            if(!grid[row][col].isWater)
+            if(!grid[row][col].isWater) {
                 grid[row][col].reset();
+				gridNextTurn[row][col].reset();
+			}
 };
 
 //outputs move information to the engine
@@ -67,6 +80,8 @@ void State::moveAnt(Ant &a)
 		
 	int direction = directionFromPoints(a.loc,a.queue.front());
 
+	bug << "moving ant at " << a.loc << CDIRECTIONS[direction] << endl;
+
 	cout << "o " << loc.row << " " << loc.col << " " << CDIRECTIONS[direction] << endl;
 
     Location nLoc = getLocation(loc, direction);
@@ -80,6 +95,8 @@ void State::makeMoves() {
 	for(int i = 0;i<(int)myAnts.size();i++) {
 		if(!myAnts[i].idle())
 			moveAnt(myAnts[i]);
+		else
+			bug << "ant at " << myAnts[i].loc << " idle" << endl;
 	}
 }
   
@@ -110,16 +127,31 @@ Location State::getLocation(const Location &loc, int direction)
                      (loc.col + DIRECTIONS[direction][1] + cols) % cols );
 };
 
-vector<Location> State::validNeighbors(const Location &current) {
+vector<Location> State::validNeighbors(const Location &current, const Location &start) {
 	vector<Location> valid;
 
 	for(int i = 0;i<4;i++) {
 		Location loc = getLocation(current, i);
-		if (passable(loc))
+		if (((current == start) ? passableNextTurn(loc) : passable(loc)) && !isOnMyHill(loc))
 			valid.push_back(loc);
 	}
 		
 	return valid;
+};
+
+bool State::isOnMyHill(const Location &current) {
+	for(int i = 0;i<(int)myHills.size();i++)
+		if(myHills[i] == current)
+			return true;
+	return false;
+}
+
+bool State::passableNextTurn(const Location &loc) {
+	if (grid[loc.row][loc.col].isWater)
+		return false;
+	if (gridNextTurn[loc.row][loc.col].ant == 0)
+		return false;
+	return true;
 };
 
 bool State::passable(const Location &loc) {
@@ -231,8 +263,10 @@ istream& operator>>(istream &is, State &state)
         {
             if(inputType == "loadtime")
                 is >> state.loadtime;
-            else if(inputType == "turntime")
+            else if(inputType == "turntime") {
                 is >> state.turntime;
+				state.bug << "turntime: " << state.turntime << " ms"  << endl;
+			}
             else if(inputType == "rows")
                 is >> state.rows;
             else if(inputType == "cols")
@@ -241,7 +275,8 @@ istream& operator>>(istream &is, State &state)
                 is >> state.turns;
             else if(inputType == "player_seed") {
                 is >> state.seed;
-				srand ( state.seed );
+				//srand ( state.seed );
+				srand ( time(NULL) );
 			}
             else if(inputType == "viewradius2")
             {
@@ -299,6 +334,8 @@ istream& operator>>(istream &is, State &state)
 						state.bug << " found in map" << endl;
 						state.myAnts.push_back(it -> second);
 					}
+					Location nLoc = state.myAnts.back().positionNextTurn();
+					state.gridNextTurn[nLoc.row][nLoc.col].ant = 0;
 				} else
                     state.enemyAnts.push_back(Location(row, col));
             }
@@ -344,6 +381,15 @@ istream& operator>>(istream &is, State &state)
 
 // Pathfinding 
 
+void State::setAntQueue(Ant &a, list<Location> q) {
+	Location oLoc = a.positionNextTurn();
+	a.queue = q;
+	Location nLoc = a.positionNextTurn();
+	
+	gridNextTurn[nLoc.row][nLoc.col].ant = 0;
+    gridNextTurn[oLoc.row][oLoc.col].ant = -1;
+}
+
 bool State::locationEq(Location a, Location b) {
 	if (a.row == b.row && a.col == b.col)
 		return true;
@@ -368,14 +414,14 @@ int State::heuristic_cost_estimate(Location start, Location goal) {
 
 //const char CDIRECTIONS[4] = {'N', 'E', 'S', 'W'};
 int State::directionFromPoints(Location point1, Location point2) {
-	if (point1.row == 0 && point2.row == rows )
+	if (point1.row == 0 && point2.row == (rows-1) )
 		return 0;
-	if (point2.row == 0 && point1.row == rows )
+	if (point2.row == 0 && point1.row == (rows-1) )
 		return 2 ;
-	if (point1.col == 0 && point2.col == cols ) 
-		return 1; 
-	if (point2.col == 0 && point1.col == cols)  
-		return 3;
+	if (point1.col == 0 && point2.col == (cols-1) ) 
+		return 3; 
+	if (point2.col == 0 && point1.col == (cols-1))  
+		return 1;
 	if (point1.row > point2.row )
 		return 0;
 	if (point2.row > point1.row ) 
@@ -440,7 +486,7 @@ list<Location> State::bfs(Location start, Location goal) {
 			return reconstruct_path(cameFrom, goal);
 			
 		closedSet[current]=true;
-		vector<Location> validNeighborsV = validNeighbors(current);
+		vector<Location> validNeighborsV = validNeighbors(current, start);
 		
 		for(int i = 0;i < (int)validNeighborsV.size();i++) {
 			Location neighbor = validNeighborsV[i];
@@ -469,6 +515,131 @@ list<Location> State::bfs(Location start, Location goal) {
 
 	}
 
+	bug << "no path found" << endl;
 	list<Location> empty;
 	return empty;
 };
+
+
+// Action functions 
+
+bool State::checkDestinations(vector<Location> destinations, Location destination) {
+	for(int i = 0;i<(int)destinations.size();i++)
+		if(destination == destinations[i])
+			return true;
+	return false;
+}
+
+void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) {
+	vector<Ant*> tooFarAnts; 
+
+	while(!ants.empty())
+	{
+		if (food.empty())
+			break;
+
+		Ant *a = ants.back();
+
+		Location minFood = food.front();
+
+		for (list<Location>::iterator foodIt=food.begin(); foodIt != food.end(); foodIt++ ){
+			if ( locDistance((*a).loc, *foodIt) < locDistance((*a).loc, minFood))
+				minFood = *foodIt;
+		}
+
+		if (locDistance((*a).loc,minFood) > maxDistance) {
+			bug << "ant too far " << locDistance((*a).loc,minFood) << endl;
+			tooFarAnts.push_back(a);
+			ants.pop_back();
+			continue;
+		}
+
+		food.remove(minFood);
+
+		list<Location> path = bfs((*a).loc, minFood);
+
+		if (! path.empty())
+		{
+
+#ifdef DEBUG
+			list<Location>::iterator it;
+			bug << "food path: ";
+			for ( it=path.begin() ; it != path.end(); it++ )
+				bug << *it << " ";
+			bug << endl;
+#endif
+
+			path.pop_front();
+			(*a).setFood();
+			setAntQueue((*a), path);
+		}
+	}
+
+	while(!tooFarAnts.empty()) {
+		ants.push_back(tooFarAnts.back());
+		tooFarAnts.pop_back();
+	}
+}
+
+void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int maxDistance) {
+	if (!hills.empty())
+		while(!ants.empty())
+		{
+			Ant *a = ants.back();
+
+			ants.pop_back();
+
+			list<Location> path = bfs((*a).loc, hills.back());
+
+			#ifdef DEBUG
+						list<Location>::iterator it;
+						bug << "kill path: ";
+						for ( it=path.begin() ; it != path.end(); it++ )
+							bug << *it << " ";
+						bug << endl;
+			#endif
+
+			if (! path.empty())
+			{
+				path.pop_front();
+				(*a).setAttack();
+				setAntQueue((*a), path);
+			}
+		}
+}
+
+void State::explore(Ant &ant, int mExpDis, int maxExpDis) {
+	Location exploreDest = randomLocation(ant.loc, mExpDis, maxExpDis);
+
+	bug << "exploring from " << ant.loc << " to " << exploreDest  << endl;
+
+	list<Location> path = bfs(ant.loc, exploreDest);
+
+	#ifdef DEBUG
+		list<Location>::iterator it;
+		bug << "explore path: ";
+		for ( it=path.begin() ; it != path.end(); it++ )
+			bug << *it << " ";
+		bug << endl;
+	#endif
+
+	if (! path.empty())
+	{
+		path.pop_front();
+		ant.setExplore();
+		setAntQueue(ant, path);
+	}
+}
+
+void State::goExplore(vector<Ant*> &ants, int mExpDis, int maxExpDis)
+{
+	//explore with additional ants if we have any
+	while(!ants.empty())
+	{
+		Ant *a = ants.back();
+
+		ants.pop_back();
+
+		explore(*a, mExpDis, maxExpDis);
+	}
+}
