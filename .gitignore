@@ -1,4 +1,12 @@
 
+*.o
+VERSION
+*.sdf
+*.sln
+*.opensdf
+*.vcxproj
+*.filters
+MyBot
 #ignore thumbnails created by windows
 Thumbs.db
 #Ignore files build by Visual Studio
