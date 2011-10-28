@@ -7,6 +7,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <list>
 #include <queue>
 #include <stack>
 #include <stdint.h>
@@ -16,6 +17,7 @@
 #include "Bug.h"
 #include "Square.h"
 #include "Location.h"
+#include "Ant.h"
 
 /*
     constants
@@ -42,8 +44,9 @@ struct State
     int64_t seed;
 
     std::vector<std::vector<Square> > grid;
-    std::vector<Location> myAnts, enemyAnts, myHills, enemyHills, food;
-    //map<Location, std::vector<Location>> antsMap;
+    std::vector<Location> enemyAnts, myHills, enemyHills, food;
+	std::vector<Ant> myAnts;
+    std::map<Location, Ant> antsMap;
 
     Timer timer;
     Bug bug;
@@ -58,6 +61,9 @@ struct State
     void reset();
 
     void makeMove(const Location &loc, int direction);
+	void makeMoves();
+
+	void moveAnt(Ant &a);
 
     double distance(const Location &loc1, const Location &loc2);
     Location getLocation(const Location &startLoc, int direction);
@@ -71,13 +77,19 @@ struct State
 
 	bool locationEq(Location a, Location b);
 	
-	std::vector<Location> reconstruct_path(std::map<Location, Location> cameFrom, Location prev);
+	std::list<Location> reconstruct_path(std::map<Location, Location> cameFrom, Location prev);
 
 	int heuristic_cost_estimate(Location start, Location goal);
 
 	int directionFromPoints(Location point1, Location point2);
 
-	std::vector<Location> bfs(Location start, Location goal);
+	std::list<Location> bfs(Location start, Location goal);
+
+	bool passable(const Location &loc);
+
+	Location randomLocation(Location origin, int distance);
+
+	int randomWithNeg(int distance);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);

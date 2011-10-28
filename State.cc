@@ -22,9 +22,24 @@ void State::setup()
     grid = vector<vector<Square> >(rows, vector<Square>(cols, Square()));
 };
 
+Location State::randomLocation(Location origin, int distance) {
+	Location loc = Location((origin.row + randomWithNeg(distance) + rows) % rows, (origin.col +  randomWithNeg(distance) +cols) % cols);
+	if (passable(loc))
+		return loc;
+	return randomLocation(origin, distance);
+}
+
+int State::randomWithNeg(int distance) {
+	return (rand() % (2*distance)) - distance;
+}
+
 //resets all non-water squares to land and clears the bots ant vector
 void State::reset()
 {
+	antsMap.clear();
+	for(int i = 0;i<(int)myAnts.size();i++) {
+		antsMap[myAnts[i].loc] = myAnts[i];
+	}
     myAnts.clear();
     enemyAnts.clear();
     myHills.clear();
@@ -45,6 +60,29 @@ void State::makeMove(const Location &loc, int direction)
     grid[nLoc.row][nLoc.col].ant = grid[loc.row][loc.col].ant;
     grid[loc.row][loc.col].ant = -1;
 };
+
+void State::moveAnt(Ant &a)
+{
+	Location loc = a.loc;
+		
+	int direction = directionFromPoints(a.loc,a.queue.front());
+
+	cout << "o " << loc.row << " " << loc.col << " " << CDIRECTIONS[direction] << endl;
+
+    Location nLoc = getLocation(loc, direction);
+    grid[nLoc.row][nLoc.col].ant = grid[loc.row][loc.col].ant;
+    grid[loc.row][loc.col].ant = -1;
+
+	a.updateQueue();
+};
+
+void State::makeMoves() {
+	for(int i = 0;i<(int)myAnts.size();i++) {
+		if(!myAnts[i].idle())
+			moveAnt(myAnts[i]);
+	}
+}
+  
   
 int State::locDistance(const Location &loc1, const Location &loc2) {
 	return modDistance(rows, loc1.row, loc2.row) + modDistance(cols, loc1.col, loc2.col);
@@ -77,11 +115,15 @@ vector<Location> State::validNeighbors(const Location &current) {
 
 	for(int i = 0;i<4;i++) {
 		Location loc = getLocation(current, i);
-		if (!grid[loc.row][loc.col].isWater)
+		if (passable(loc))
 			valid.push_back(loc);
 	}
 		
 	return valid;
+};
+
+bool State::passable(const Location &loc) {
+	return (!grid[loc.row][loc.col].isWater);
 };
 
 
@@ -101,7 +143,7 @@ void State::updateVisionInformation()
 
     for(int a=0; a<(int) myAnts.size(); a++)
     {
-        sLoc = myAnts[a];
+		sLoc = myAnts[a].loc;
         locQueue.push(sLoc);
 
         std::vector<std::vector<bool> > visited(rows, std::vector<bool>(cols, 0));
@@ -197,8 +239,10 @@ istream& operator>>(istream &is, State &state)
                 is >> state.cols;
             else if(inputType == "turns")
                 is >> state.turns;
-            else if(inputType == "player_seed")
+            else if(inputType == "player_seed") {
                 is >> state.seed;
+				srand ( state.seed );
+			}
             else if(inputType == "viewradius2")
             {
                 is >> state.viewradius;
@@ -243,9 +287,19 @@ istream& operator>>(istream &is, State &state)
             {
                 is >> row >> col >> player;
                 state.grid[row][col].ant = player;
-                if(player == 0)
-                    state.myAnts.push_back(Location(row, col));
-                else
+                if(player == 0) {
+					Location loc = Location(row, col);
+					state.bug << "new ant at " << loc;
+					map<Location,Ant>::iterator it = state.antsMap.find(loc);
+					if (it == state.antsMap.end()) {
+						state.bug << " not found in map" << endl;
+						state.myAnts.push_back(Ant(loc));
+					}
+					else {
+						state.bug << " found in map" << endl;
+						state.myAnts.push_back(it -> second);
+					}
+				} else
                     state.enemyAnts.push_back(Location(row, col));
             }
             else if(inputType == "d") //dead ant square
@@ -296,13 +350,13 @@ bool State::locationEq(Location a, Location b) {
 	return false;
 };
 
-vector<Location> State::reconstruct_path(map<Location, Location> cameFrom, Location prev) {
+list<Location> State::reconstruct_path(map<Location, Location> cameFrom, Location prev) {
 	if (cameFrom.count(prev)>0) {
-		vector<Location> path = reconstruct_path(cameFrom, cameFrom[prev]);
+		list<Location> path = reconstruct_path(cameFrom, cameFrom[prev]);
 		path.push_back(prev);
 		return path;
 	} else {
-		vector<Location> path;
+		list<Location> path;
 		path.push_back(prev);
 		return path;
 	}
@@ -360,7 +414,7 @@ class heuristicCompare
 	}
 };
 
-vector<Location> State::bfs(Location start, Location goal) {
+list<Location> State::bfs(Location start, Location goal) {
 	typedef priority_queue<Location, vector<Location>, heuristicCompare> mypq_type;
 	mypq_type openSet (heuristicCompare(rows, cols, goal));
 	map<Location, bool> openSetMap;
@@ -383,7 +437,7 @@ vector<Location> State::bfs(Location start, Location goal) {
 		
 		openSet.pop();
 		if (locationEq(current, goal))
-			return reconstruct_path(cameFrom, cameFrom[goal]);
+			return reconstruct_path(cameFrom, goal);
 			
 		closedSet[current]=true;
 		vector<Location> validNeighborsV = validNeighbors(current);
@@ -415,6 +469,6 @@ vector<Location> State::bfs(Location start, Location goal) {
 
 	}
 
-	vector<Location> empty;
+	list<Location> empty;
 	return empty;
 };

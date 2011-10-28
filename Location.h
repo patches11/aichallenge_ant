@@ -33,7 +33,12 @@ struct Location
 	return false;
 	}
 
-	
+	friend bool operator== (Location first, Location second)
+	{
+		if (first.row == second.row && first.row == second.row)
+			return true;
+		return false;
+	}
 
 };
 
