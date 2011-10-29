@@ -179,7 +179,7 @@ void State::updateVisionInformation()
         locQueue.push(sLoc);
 
         std::vector<std::vector<bool> > visited(rows, std::vector<bool>(cols, 0));
-        grid[sLoc.row][sLoc.col].isVisible = 1;
+        grid[sLoc.row][sLoc.col].isVisible = true;
         visited[sLoc.row][sLoc.col] = 1;
 
         while(!locQueue.empty())
@@ -193,7 +193,7 @@ void State::updateVisionInformation()
 
                 if(!visited[nLoc.row][nLoc.col] && distance(sLoc, nLoc) <= viewradius)
                 {
-                    grid[nLoc.row][nLoc.col].isVisible = 1;
+                    grid[nLoc.row][nLoc.col].isVisible = true;
                     locQueue.push(nLoc);
                 }
                 visited[nLoc.row][nLoc.col] = 1;
@@ -310,12 +310,12 @@ istream& operator>>(istream &is, State &state)
             if(inputType == "w") //water square
             {
                 is >> row >> col;
-                state.grid[row][col].isWater = 1;
+                state.grid[row][col].isWater = true;
             }
             else if(inputType == "f") //food square
             {
                 is >> row >> col;
-                state.grid[row][col].isFood = 1;
+                state.grid[row][col].isFood = true;
                 state.food.push_back(Location(row, col));
             }
             else if(inputType == "a") //live ant square
@@ -347,7 +347,7 @@ istream& operator>>(istream &is, State &state)
             else if(inputType == "h")
             {
                 is >> row >> col >> player;
-                state.grid[row][col].isHill = 1;
+                state.grid[row][col].isHill = true;
                 state.grid[row][col].hillPlayer = player;
                 if(player == 0)
                     state.myHills.push_back(Location(row, col));
@@ -554,6 +554,8 @@ void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) 
 			continue;
 		}
 
+		ants.pop_back();
+
 		food.remove(minFood);
 
 		list<Location> path = bfs((*a).loc, minFood);
@@ -641,5 +643,15 @@ void State::goExplore(vector<Ant*> &ants, int mExpDis, int maxExpDis)
 		ants.pop_back();
 
 		explore(*a, mExpDis, maxExpDis);
+	}
+}
+
+void State::rerouteAnt(Ant &ant) {
+	list<Location> path = bfs(ant.loc, ant.destination());
+
+	if (!path.empty()) {
+		path.pop_front();
+	
+		setAntQueue(ant, path);
 	}
 }

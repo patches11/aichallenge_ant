@@ -2,8 +2,10 @@
 
 using namespace std;
 
-#define exploreDistance 15
+#define exploreDistance 10
 #define minExploreDistance 3
+#define maxFoodDistance 30
+#define maxExploreFoodDistance 5
 
 //constructor
 Bot::Bot()
@@ -63,10 +65,10 @@ void Bot::makeMoves()
 	}
 
 	state.bug << "getting close food with exploring ants" << endl;
-	state.getFoods(exploringAnts, idleFoods, 4);
+	state.getFoods(exploringAnts, idleFoods, maxExploreFoodDistance);
 
 	state.bug << "getting food with idle ants" << endl;
-    state.getFoods(idleAnts, idleFoods, 30);
+    state.getFoods(idleAnts, idleFoods, maxFoodDistance);
 
 	state.bug << "killing hills with idle ants" << endl;
 	state.killHills(idleAnts, state.enemyHills, 0);
@@ -79,27 +81,22 @@ void Bot::makeMoves()
 		if (state.myAnts[i].idle() && state.isOnMyHill(state.myAnts[i].loc)) {
 			state.explore(state.myAnts[i], 4, 6);
 		}
+		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
+			state.rerouteAnt(state.myAnts[i]);
+		}
 		for (int j = i+1;j<(int)state.myAnts.size();j++)
 			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {
 				if (state.myAnts[j].idle()) {
 					state.bug << "reseting route because of collision, ant at: " << state.myAnts[i].loc << " other ant at " << state.myAnts[j].loc << endl;
 					state.bug << "locations next turn: " << state.myAnts[i].positionNextTurn() << " other ant at " << state.myAnts[j].positionNextTurn() << endl;
 					
-					list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].destination());
-
-					path.pop_front();
-
-					state.setAntQueue(state.myAnts[i], path);
+					state.rerouteAnt(state.myAnts[i]);
 
 					break;
 				} else {
 					state.bug << "reseting route because of collision, ant at: " << state.myAnts[j].loc << " other ant at " << state.myAnts[i].loc << endl;
 					state.bug << "locations next turn: " << state.myAnts[j].positionNextTurn() << " other ant at " << state.myAnts[i].positionNextTurn() << endl;
-					list<Location> path = state.bfs(state.myAnts[j].loc, state.myAnts[j].destination());
-
-					path.pop_front();
-
-					state.setAntQueue(state.myAnts[j], path);
+					state.rerouteAnt(state.myAnts[j]);
 				}
 			}
 	}

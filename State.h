@@ -111,6 +111,8 @@ struct State
 	void explore(Ant &ant, int mExpDis, int maxExpDis);
 
 	void goExplore(std::vector<Ant*> &ants, int mExpDis, int maxExpDis);
+
+	void rerouteAnt(Ant &ant);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);
