@@ -554,12 +554,17 @@ list<Location> State::bfs(Location start, Location goal) {
 	h_score[start] = heuristic_cost_estimate(start, goal);
 	f_score[start] = g_score[start] + h_score[start];
 	
+	int steps = 0;
+
 	while (!openSet.empty()) {
+		steps++;
 		Location current = openSet.top();
 		
 		openSet.pop();
-		if (locationEq(current, goal))
+		if (locationEq(current, goal)) {
+			bug << "steps taken: " << steps << endl;
 			return reconstruct_path(cameFrom, goal);
+		}
 			
 		closedSet[current]=true;
 		vector<Location> validNeighborsV = validNeighbors(current, start);
@@ -782,19 +787,24 @@ void State::defendHill(int antsPerTurn, double buffer) {
 
 				exclude.push_back(index);
 
-				Location hLoc = validNeighbors(myHills[i]).front();
+				vector<Location> hLocs = validNeighbors(myHills[i]);
 
-				list<Location> path = bfs(myAnts[index].loc, hLoc);
-
-				if (! path.empty())
+				if (!hLocs.empty())
 				{
-					path.pop_front();
-					if (!myAnts[index].idle()) {
-						myAnts[index].rDestination = path.back();
-						myAnts[index].intRole = myAnts[index].role;
+					Location hLoc = hLocs.front();
+
+					list<Location> path = bfs(myAnts[index].loc, hLoc);
+
+					if (! path.empty())
+					{
+						path.pop_front();
+						if (!myAnts[index].idle()) {
+							myAnts[index].rDestination = path.back();
+							myAnts[index].intRole = myAnts[index].role;
+						}
+						myAnts[index].setDefend();
+						setAntQueue(myAnts[index], path);
 					}
-					myAnts[index].setDefend();
-					setAntQueue(myAnts[index], path);
 				}
 			}
 		}
@@ -828,7 +838,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 
 //Not Working
 vector<Ant> State::myAntsWhoWillAntDie() {
-	map<Location, vector<Ant>> nearby_enemies;
+	map<Location, vector<Ant> > nearby_enemies;
 
 	vector<Ant> antsWhoWillDie;
 
