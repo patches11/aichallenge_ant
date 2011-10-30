@@ -23,6 +23,10 @@ void State::setup()
 	gridNextTurn = vector<vector<Square> >(rows, vector<Square>(cols, Square()));
 };
 
+bool State::outOfTime(double marginOfError) {
+	return (timer.getTime() >= (turntime - marginOfError));
+}
+
 Location State::randomLocation(Location origin, int min, int distance) {
 	Location loc = Location((origin.row + randomWithNeg(min, distance) + rows) % rows,
 							(origin.col + randomWithNeg(min, distance) + cols) % cols);
@@ -63,6 +67,9 @@ void State::reset()
 				gridNextTurn[row][col].reset();
 			}
 };
+
+
+
 
 //outputs move information to the engine
 void State::makeMove(const Location &loc, int direction)
@@ -113,11 +120,17 @@ int State::modDistance(int m, int x, int y) {
 //returns the euclidean distance between two locations with the edges wrapped
 double State::distance(const Location &loc1, const Location &loc2)
 {
+    return sqrt(distanceSq(loc1, loc2));
+};
+
+//returns the square of the euclidean distance between two locations with the edges wrapped
+double State::distanceSq(const Location &loc1, const Location &loc2)
+{
     int d1 = abs(loc1.row-loc2.row),
         d2 = abs(loc1.col-loc2.col),
         dr = min(d1, rows-d1),
         dc = min(d2, cols-d2);
-    return sqrt(dr*dr + dc*dc + 0.0);
+    return dr*dr + dc*dc;
 };
 
 //returns the new location from moving in a given direction with the edges wrapped
@@ -133,6 +146,18 @@ vector<Location> State::validNeighbors(const Location &current, const Location &
 	for(int i = 0;i<4;i++) {
 		Location loc = getLocation(current, i);
 		if (((current == start) ? passableNextTurn(loc) : passable(loc)) && !isOnMyHill(loc))
+			valid.push_back(loc);
+	}
+		
+	return valid;
+};
+
+vector<Location> State::validNeighbors(const Location &current) {
+	vector<Location> valid;
+
+	for(int i = 0;i<4;i++) {
+		Location loc = getLocation(current, i);
+		if (passable(loc))
 			valid.push_back(loc);
 	}
 		
@@ -281,11 +306,13 @@ istream& operator>>(istream &is, State &state)
             else if(inputType == "viewradius2")
             {
                 is >> state.viewradius;
+				state.viewradius2 = state.viewradius;
                 state.viewradius = sqrt(state.viewradius);
             }
             else if(inputType == "attackradius2")
             {
                 is >> state.attackradius;
+				state.attackradius2 = state.attackradius;
                 state.attackradius = sqrt(state.attackradius);
             }
             else if(inputType == "spawnradius2")
@@ -328,7 +355,7 @@ istream& operator>>(istream &is, State &state)
 					map<Location,Ant>::iterator it = state.antsMap.find(loc);
 					if (it == state.antsMap.end()) {
 						state.bug << " not found in map" << endl;
-						state.myAnts.push_back(Ant(loc));
+						state.myAnts.push_back(Ant(loc,0));
 					}
 					else {
 						state.bug << " found in map" << endl;
@@ -337,7 +364,7 @@ istream& operator>>(istream &is, State &state)
 					Location nLoc = state.myAnts.back().positionNextTurn();
 					state.gridNextTurn[nLoc.row][nLoc.col].ant = 0;
 				} else
-                    state.enemyAnts.push_back(Location(row, col));
+                    state.enemyAnts.push_back(Ant(Location(row, col),player));
             }
             else if(inputType == "d") //dead ant square
             {
@@ -460,6 +487,55 @@ class heuristicCompare
 	}
 };
 
+/*
+
+function A*(start,goal)
+     closedset := the empty set    // The set of nodes already evaluated.
+     openset := {start}    // The set of tentative nodes to be evaluated, initially containing the start node
+     came_from := the empty map    // The map of navigated nodes.
+ 
+     g_score[start] := 0    // Cost from start along best known path.
+     h_score[start] := heuristic_cost_estimate(start, goal)
+     f_score[start] := g_score[start] + h_score[start]    // Estimated total cost from start to goal through y.
+ 
+     while openset is not empty
+         x := the node in openset having the lowest f_score[] value
+         if x = goal
+             return reconstruct_path(came_from, came_from[goal])
+ 
+         remove x from openset
+         add x to closedset
+         foreach y in neighbor_nodes(x)
+             if y in closedset
+                 continue
+             tentative_g_score := g_score[x] + dist_between(x,y)
+ 
+             if y not in openset
+                 add y to openset
+                 tentative_is_better := true
+             else if tentative_g_score < g_score[y]
+                 tentative_is_better := true
+             else
+                 tentative_is_better := false
+ 
+             if tentative_is_better = true
+                 came_from[y] := x
+                 g_score[y] := tentative_g_score
+                 h_score[y] := heuristic_cost_estimate(y, goal)
+                 f_score[y] := g_score[y] + h_score[y]
+ 
+     return failure
+ 
+ function reconstruct_path(came_from, current_node)
+     if came_from[current_node] is set
+         p = reconstruct_path(came_from, came_from[current_node])
+         return (p + current_node)
+     else
+         return current_node
+
+*/
+// Has some problems; doesn't seem to always find the shortest path
+// I think the problem is with the tentativeIsBetter section
 list<Location> State::bfs(Location start, Location goal) {
 	typedef priority_queue<Location, vector<Location>, heuristicCompare> mypq_type;
 	mypq_type openSet (heuristicCompare(rows, cols, goal));
@@ -530,7 +606,7 @@ bool State::checkDestinations(vector<Location> destinations, Location destinatio
 	return false;
 }
 
-void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) {
+void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance, bool retainCurrentDestination) {
 	vector<Ant*> tooFarAnts; 
 
 	while(!ants.empty())
@@ -572,6 +648,10 @@ void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) 
 #endif
 
 			path.pop_front();
+			if (retainCurrentDestination && !(*a).idle()) {
+				(*a).rDestination = path.back();
+				(*a).intRole = (*a).role;
+			}
 			(*a).setFood();
 			setAntQueue((*a), path);
 		}
@@ -583,15 +663,19 @@ void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) 
 	}
 }
 
-void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int maxDistance) {
-	if (!hills.empty())
-		while(!ants.empty())
+void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int antsPerHillPerTurn) {
+	int antsSentHere = 0;
+	Location currentHill;
+	while (!hills.empty()) {
+		currentHill = hills.back();
+		antsSentHere = 0;
+		while((!ants.empty()) && (antsSentHere < antsPerHillPerTurn))
 		{
 			Ant *a = ants.back();
 
 			ants.pop_back();
 
-			list<Location> path = bfs((*a).loc, hills.back());
+			list<Location> path = bfs((*a).loc, currentHill);
 
 			#ifdef DEBUG
 						list<Location>::iterator it;
@@ -606,8 +690,11 @@ void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int maxDistan
 				path.pop_front();
 				(*a).setAttack();
 				setAntQueue((*a), path);
+				antsSentHere++;
 			}
 		}
+		hills.pop_back();
+	}
 }
 
 void State::explore(Ant &ant, int mExpDis, int maxExpDis) {
@@ -654,4 +741,167 @@ void State::rerouteAnt(Ant &ant) {
 	
 		setAntQueue(ant, path);
 	}
+}
+
+//Not working?
+void State::defendHill(int antsPerTurn, double buffer) {
+
+	vector<int> exclude;
+	vector<Ant> closeAnts;
+
+
+	for(int i = 0;i<(int)myHills.size();i++) {
+		bool atRisk = false;
+		
+		for(int k = 0;k<(int)enemyAnts.size();k++)
+			if (distanceSq(enemyAnts[k].loc,myHills[i]) < viewradius2 + buffer) {
+				atRisk = true;
+				closeAnts.push_back(enemyAnts[k]);
+			}
+
+		if (atRisk) {
+			int antsTaken = 0;
+
+			for(;antsTaken < antsPerTurn;antsTaken++) {
+
+				if (exclude.size() == myAnts.size())
+					break;
+			
+				//TODO fix this not perfect
+				int index = 0;
+				for(int j = 0;j<(int)myAnts.size();j++) {
+					bool cont = false;
+					for(int w = 0;w<(int)exclude.size();w++)
+						if (exclude[w] == j)
+							cont = true;
+					if (cont)
+						continue;
+					if (distanceSq(myAnts[j].loc,myHills[i]) < distanceSq(myAnts[index].loc,myHills[i]) && !myAnts[j].isDefending())
+						index = j;
+				}
+
+				exclude.push_back(index);
+
+				Location hLoc = validNeighbors(myHills[i]).front();
+
+				list<Location> path = bfs(myAnts[index].loc, hLoc);
+
+				if (! path.empty())
+				{
+					path.pop_front();
+					if (!myAnts[index].idle()) {
+						myAnts[index].rDestination = path.back();
+						myAnts[index].intRole = myAnts[index].role;
+					}
+					myAnts[index].setDefend();
+					setAntQueue(myAnts[index], path);
+				}
+			}
+		}
+		exclude.clear();
+	}
+}
+
+/*
+# we pre-calculate the number of enemies around each ant to make it faster
+
+        # maps ants to nearby enemies
+        nearby_enemies = {}
+        for ant in self.current_ants.values():
+            nearby_enemies[ant] = self.nearby_ants(ant.loc, self.attackradius, ant.owner)
+
+        # determine which ants to kill
+        ants_to_kill = []
+        for ant in self.current_ants.values():
+            # determine this ants weakness (1/power)
+            weakness = len(nearby_enemies[ant])
+            # an ant with no enemies nearby can't be attacked
+            if weakness == 0:
+                continue
+            # determine the most powerful nearby enemy
+            min_enemy_weakness = min(len(nearby_enemies[enemy]) for enemy in nearby_enemies[ant])
+            # ant dies if it is weak as or weaker than an enemy weakness
+            if min_enemy_weakness <= weakness:
+                ants_to_kill.append(ant)
+
+*/
+
+//Not Working
+vector<Ant> State::myAntsWhoWillAntDie() {
+	map<Location, vector<Ant>> nearby_enemies;
+
+	vector<Ant> antsWhoWillDie;
+
+	for(int i = 0;i<(int)myAnts.size();i++) {
+		nearby_enemies[myAnts[i].loc] = nearbyAnts(myAnts[i].loc, myAnts[i].owner);
+	}
+	for(int i = 0;i<(int)enemyAnts.size();i++) {
+		nearby_enemies[enemyAnts[i].loc] = nearbyAnts(enemyAnts[i].loc, enemyAnts[i].owner);
+	}
+
+	for(int i = 0;i<(int)myAnts.size();i++) {
+		vector<Ant> enemies = nearby_enemies[myAnts[i].loc];
+		int weakness = enemies.size();
+
+		if (weakness == 0)
+			continue;
+
+		int max_enemy_weakness = 0;
+
+		for(int j = 0;j< (int)enemies.size();j++) {
+			int tWeak = nearby_enemies[enemies[j].loc].size();
+			if(tWeak > max_enemy_weakness)
+				max_enemy_weakness = tWeak;
+		}
+
+		if (max_enemy_weakness >= weakness)
+			antsWhoWillDie.push_back(myAnts[i]);
+	}
+
+	return antsWhoWillDie;
+}
+
+bool State::willAntDie(Location loc) {
+	vector<Ant> enemies = nearbyAnts(loc, 0);
+	int weakness = enemies.size();
+
+	if (weakness == 0)
+		return false;
+
+	int max_enemy_weakness = 0;
+
+	for(int j = 0;j< (int)enemies.size();j++) {
+		int tWeak = nearbyAnts(enemies[j].loc, enemies[j].owner).size();
+		if(tWeak > max_enemy_weakness)
+			max_enemy_weakness = tWeak;
+	}
+
+	if (max_enemy_weakness >= weakness)
+		return true;
+
+	return false;
+}
+
+vector<Ant> State::nearbyAnts(Location loc, int owner) {
+	vector<Location> neighbors;
+	vector<Ant> close;
+
+	neighbors.push_back(loc);
+	while(!neighbors.empty())
+	{
+		Location current = neighbors.back();
+		neighbors.pop_back();
+
+		vector<Location> validNeighborsV = validNeighbors(loc);
+		
+		for(int i = 0;i < (int)validNeighborsV.size();i++) {
+			if (distanceSq(validNeighborsV[i],loc) < attackradius2) {
+				neighbors.push_back(validNeighborsV[i]);
+				if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != owner))
+					close.push_back(Ant(validNeighborsV[i], grid[validNeighborsV[i].row][validNeighborsV[i].col].ant));
+			}
+		}
+	}
+
+	return close;
 }

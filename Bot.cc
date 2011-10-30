@@ -3,9 +3,13 @@
 using namespace std;
 
 #define exploreDistance 10
-#define minExploreDistance 3
+#define minExploreDistance 5
 #define maxFoodDistance 30
 #define maxExploreFoodDistance 5
+#define maxAntsToKillHillPerTurn 10
+#define timeWindowMs 50
+#define defendAntsPerTurn 3
+#define hillBuffer 4
 
 //constructor
 Bot::Bot()
@@ -21,6 +25,8 @@ void Bot::playGame()
     state.setup();
     endTurn();
 
+	state.bug << "attack radius: " << state.attackradius << endl;
+
     //continues making moves while the game is not over
     while(cin >> state)
     {
@@ -34,30 +40,47 @@ void Bot::playGame()
 void Bot::makeMoves()
 {
     state.bug << "turn " << state.turn << ":" << endl;
+	state.bug << "ants " << (int)state.myAnts.size() << endl;
     state.bug << state << endl;
 
+	// TODO - reroute ants to defend hill if enemies close to within sight distance
+	state.bug << "defending hills with close ants" << endl;
+	double time1 = state.timer.getTime();
+	state.defendHill(defendAntsPerTurn, hillBuffer);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
 	vector<Location> destinations;
-
-	for (int i = 0;i<(int)state.myAnts.size();i++) {
-		if (!state.myAnts[i].idle())
-			destinations.push_back(state.myAnts[i].destination());
-	}
-
 	vector<Ant*> idleAnts;
-
-	for(int i = 0;i<(int)state.myAnts.size();i++){
-		if (state.myAnts[i].idle())
-			idleAnts.push_back(&state.myAnts[i]);
-	}
-
 	vector<Ant*> exploringAnts;
+	list<Location> idleFoods;
+	
+	for (int i = 0;i<(int)state.myAnts.size();i++) {
+		if (!state.myAnts[i].idle()) {
+			if (state.passable(state.myAnts[i].destination()))
+				destinations.push_back(state.myAnts[i].destination());
+			else {
+				state.myAnts[i].setIdle();
+				idleAnts.push_back(&state.myAnts[i]);
+			}
+		} else {
+			if (state.myAnts[i].intRole != -1) {
+				list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].rDestination);
 
-	for(int i = 0;i<(int)state.myAnts.size();i++){
+				state.myAnts[i].role = state.myAnts[i].intRole;
+				state.myAnts[i].intRole = -1;
+
+				if (!path.empty()) {
+					path.pop_front();
+	
+					state.setAntQueue(state.myAnts[i], path);
+				}
+			}
+			else
+				idleAnts.push_back(&state.myAnts[i]);
+		}
 		if (state.myAnts[i].exploring())
 			exploringAnts.push_back(&state.myAnts[i]);
 	}
-
-	list<Location> idleFoods;
 
 	for(int i = 0;i<(int)state.food.size();i++){
 		if (!state.checkDestinations(destinations, state.food[i]))
@@ -65,19 +88,45 @@ void Bot::makeMoves()
 	}
 
 	state.bug << "getting close food with exploring ants" << endl;
-	state.getFoods(exploringAnts, idleFoods, maxExploreFoodDistance);
+	time1 = state.timer.getTime();
+	state.getFoods(exploringAnts, idleFoods, maxExploreFoodDistance, true);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
+	if (state.outOfTime(timeWindowMs))
+		return;
 
 	state.bug << "getting food with idle ants" << endl;
-    state.getFoods(idleAnts, idleFoods, maxFoodDistance);
+	time1 = state.timer.getTime();
+    state.getFoods(idleAnts, idleFoods, maxFoodDistance, false);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
+	if (state.outOfTime(timeWindowMs))
+		return;
 
 	state.bug << "killing hills with idle ants" << endl;
-	state.killHills(idleAnts, state.enemyHills, 0);
+	time1 = state.timer.getTime();
+	state.killHills(idleAnts, state.enemyHills, maxAntsToKillHillPerTurn);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
+	if (state.outOfTime(timeWindowMs))
+		return;
 
 	state.bug << "exploring with remaining ants" << endl;
+	time1 = state.timer.getTime();
 	state.goExplore(idleAnts, minExploreDistance, exploreDistance);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
+	if (state.outOfTime(timeWindowMs))
+		return;
 
 	//If ants are going to collide next turn then re-route to destination
+	state.bug << "re routing ants" << endl;
+	time1 = state.timer.getTime();
+	//TODO - retreat if ant will lose a battle
+	//Todo - We still have collisions, fix this code
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
+		if (state.outOfTime(timeWindowMs))
+			return;
 		if (state.myAnts[i].idle() && state.isOnMyHill(state.myAnts[i].loc)) {
 			state.explore(state.myAnts[i], 4, 6);
 		}
@@ -100,8 +149,9 @@ void Bot::makeMoves()
 				}
 			}
 	}
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
-    state.bug << "time taken: " << state.timer.getTime() << "ms" << endl << endl;
+    state.bug << "turn time taken: " << state.timer.getTime() << "ms" << endl << endl;
 };
 
 //finishes the turn

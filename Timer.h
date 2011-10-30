@@ -1,9 +1,9 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
-//#include <time.h>
+#include <time.h>
 // //
-#include <sys/time.h>
+//#include <sys/time.h>
 
 /*
     struct for checking how long it has been since the start of the turn.

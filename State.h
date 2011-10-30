@@ -37,7 +37,7 @@ struct State
     int rows, cols,
         turn, turns,
         noPlayers;
-    double attackradius, spawnradius, viewradius;
+    double attackradius, spawnradius, viewradius, attackradius2, viewradius2;
     double loadtime, turntime;
     std::vector<double> scores;
     bool gameover;
@@ -45,8 +45,8 @@ struct State
 
     std::vector<std::vector<Square> > grid;
 	std::vector<std::vector<Square> > gridNextTurn;
-    std::vector<Location> enemyAnts, myHills, enemyHills, food;
-	std::vector<Ant> myAnts;
+    std::vector<Location> myHills, enemyHills, food;
+	std::vector<Ant> enemyAnts, myAnts;
     std::map<Location, Ant> antsMap;
 
     Timer timer;
@@ -69,10 +69,14 @@ struct State
     double distance(const Location &loc1, const Location &loc2);
     Location getLocation(const Location &startLoc, int direction);
 
+	double distanceSq(const Location &loc1, const Location &loc2);
+
 	int locDistance(const Location &loc1, const Location &loc2);
 	int modDistance(int m, int x, int y);
 
 	std::vector<Location> validNeighbors(const Location &current, const Location &start);
+
+	std::vector<Location> validNeighbors(const Location &current);
 
     void updateVisionInformation();
 
@@ -100,11 +104,17 @@ struct State
 
 	bool xAwayFromMyHill(int dis, Location current);
 
+	bool willAntDie(Location a);
+
+	std::vector<Ant> myAntsWhoWillAntDie();
+
+	std::vector<Ant> nearbyAnts(Location loc, int owner);
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);
 
-	void getFoods(std::vector<Ant*> &ants, std::list<Location> &food, int maxDistance);
+	void getFoods(std::vector<Ant*> &ants, std::list<Location> &food, int maxDistance, bool retainCurrentDestination);
 
 	void killHills(std::vector<Ant*> &ants, std::vector<Location> &hills, int maxDistance);
 
@@ -113,6 +123,10 @@ struct State
 	void goExplore(std::vector<Ant*> &ants, int mExpDis, int maxExpDis);
 
 	void rerouteAnt(Ant &ant);
+
+	bool outOfTime(double marginOfError);
+
+	void defendHill(int antsPerTurn, double buffer);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);
