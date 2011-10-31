@@ -43,7 +43,6 @@ void Bot::makeMoves()
 	state.bug << "ants " << (int)state.myAnts.size() << endl;
     state.bug << state << endl;
 
-	// TODO - reroute ants to defend hill if enemies close to within sight distance
 	state.bug << "defending hills with close ants" << endl;
 	double time1 = state.timer.getTime();
 	state.defendHill(defendAntsPerTurn, hillBuffer);
@@ -56,8 +55,12 @@ void Bot::makeMoves()
 	
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
 		if (!state.myAnts[i].idle()) {
-			if (state.passable(state.myAnts[i].destination()))
-				destinations.push_back(state.myAnts[i].destination());
+			Location destination = state.myAnts[i].destination();
+			if (state.myAnts[i].isAttacking() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isHill) {
+				state.myAnts[i].setIdle();
+				idleAnts.push_back(&state.myAnts[i]);
+			}else if (state.passable(destination))
+				destinations.push_back(destination);
 			else {
 				state.myAnts[i].setIdle();
 				idleAnts.push_back(&state.myAnts[i]);

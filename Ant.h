@@ -49,10 +49,14 @@ struct Ant
 	}
 
 	void setDefend() {
-		role = 2;
+		role = 3;
 	}
 
 	bool isDefending() {
+		return role == 3;
+	}
+
+	bool isAttacking() {
 		return role == 2;
 	}
 

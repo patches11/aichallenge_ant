@@ -536,6 +536,9 @@ function A*(start,goal)
 */
 // Has some problems; doesn't seem to always find the shortest path
 // I think the problem is with the tentativeIsBetter section
+// Consider limiting steps to ~750
+// data: 170 steps 3ms
+// 1937 steps 62ms
 list<Location> State::bfs(Location start, Location goal) {
 	typedef priority_queue<Location, vector<Location>, heuristicCompare> mypq_type;
 	mypq_type openSet (heuristicCompare(rows, cols, goal));
@@ -741,7 +744,10 @@ void State::goExplore(vector<Ant*> &ants, int mExpDis, int maxExpDis)
 void State::rerouteAnt(Ant &ant) {
 	list<Location> path = bfs(ant.loc, ant.destination());
 
-	if (!path.empty()) {
+	if (path.empty()) {
+		ant.setIdle();
+	}
+	else {
 		path.pop_front();
 	
 		setAntQueue(ant, path);
