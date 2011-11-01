@@ -25,8 +25,6 @@ void Bot::playGame()
     state.setup();
     endTurn();
 
-	state.bug << "attack radius: " << state.attackradius << endl;
-
     //continues making moves while the game is not over
     while(cin >> state)
     {
@@ -59,7 +57,10 @@ void Bot::makeMoves()
 			if (state.myAnts[i].isAttacking() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isHill) {
 				state.myAnts[i].setIdle();
 				idleAnts.push_back(&state.myAnts[i]);
-			}else if (state.passable(destination))
+			}else if (state.myAnts[i].isGettingFood() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isFood) {
+				state.myAnts[i].setIdle();
+				idleAnts.push_back(&state.myAnts[i]);
+			} else if (state.passable(destination))
 				destinations.push_back(destination);
 			else {
 				state.myAnts[i].setIdle();
@@ -96,15 +97,7 @@ void Bot::makeMoves()
 
 	state.bug << "getting close food with exploring ants" << endl;
 	time1 = state.timer.getTime();
-	state.getCloseFoods(exploringOrFoodingAnts, idleFoods, maxExploreFoodDistance, true);//We should do this with getting food ants as well and seperate the two versions of get food, they are different.
-	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
-
-	if (state.outOfTime(timeWindowMs))
-		return;
-
-	state.bug << "getting food with idle ants" << endl;
-	time1 = state.timer.getTime();
-    state.getFoods(idleAnts, idleFoods, maxFoodDistance);
+	state.getCloseFoods(exploringOrFoodingAnts, idleFoods, maxExploreFoodDistance, true);
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))
@@ -113,6 +106,14 @@ void Bot::makeMoves()
 	state.bug << "killing hills with idle ants" << endl;
 	time1 = state.timer.getTime();
 	state.killHills(idleAnts, state.enemyHills, maxAntsToKillHillPerTurn);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
+	if (state.outOfTime(timeWindowMs))
+		return;
+
+	state.bug << "getting food with idle ants" << endl;
+	time1 = state.timer.getTime();
+    state.getFoods(idleAnts, idleFoods, maxFoodDistance);
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))

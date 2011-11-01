@@ -14,8 +14,8 @@ struct Ant
 {
 	std::list<Location> queue;
     Location loc;
-	Location rDestination;//Interrupted Destination
-	Location iDestination;//Real destination
+	Location rDestination;//Interrupted Destination, if Ant is sent to get close food
+	Location iDestination;//Real destination, may not match queue.back() because of interrupted pathfinding
 	int intRole, role, owner;
 
 	Ant()
