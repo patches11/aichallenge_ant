@@ -2,6 +2,9 @@
 
 using namespace std;
 
+#define attackDistanceBuffer 6
+#define searchStepLimit 550
+
 //constructor
 State::State()
 {
@@ -145,7 +148,7 @@ vector<Location> State::validNeighbors(const Location &current, const Location &
 
 	for(int i = 0;i<4;i++) {
 		Location loc = getLocation(current, i);
-		if (((current == start) ? passableNextTurn(loc) : passable(loc)) && !isOnMyHill(loc))
+		if (((current == start) ? passableNextTurn(loc) : passable(loc)) && !isOnMyHill(loc))//avoiding routefinding on the hill can cause an ant to get stuck if the hill is near a single passable square with no other way out
 			valid.push_back(loc);
 	}
 		
@@ -203,9 +206,9 @@ void State::updateVisionInformation()
 		sLoc = myAnts[a].loc;
         locQueue.push(sLoc);
 
-        std::vector<std::vector<bool> > visited(rows, std::vector<bool>(cols, 0));
+        std::vector<std::vector<bool> > visited(rows, std::vector<bool>(cols, false));
         grid[sLoc.row][sLoc.col].isVisible = true;
-        visited[sLoc.row][sLoc.col] = 1;
+        visited[sLoc.row][sLoc.col] = true;
 
         while(!locQueue.empty())
         {
@@ -219,9 +222,10 @@ void State::updateVisionInformation()
                 if(!visited[nLoc.row][nLoc.col] && distance(sLoc, nLoc) <= viewradius)
                 {
                     grid[nLoc.row][nLoc.col].isVisible = true;
+					grid[nLoc.row][nLoc.col].isExplored = true;
                     locQueue.push(nLoc);
                 }
-                visited[nLoc.row][nLoc.col] = 1;
+                visited[nLoc.row][nLoc.col] = true;
             }
         }
     }
@@ -301,7 +305,7 @@ istream& operator>>(istream &is, State &state)
             else if(inputType == "player_seed") {
                 is >> state.seed;
 				//srand ( state.seed );
-				srand ( time(NULL) );
+				srand ( (int) time(NULL) );
 			}
             else if(inputType == "viewradius2")
             {
@@ -408,9 +412,10 @@ istream& operator>>(istream &is, State &state)
 
 // Pathfinding 
 
-void State::setAntQueue(Ant &a, list<Location> q) {
+void State::setAntQueue(Ant &a, list<Location> q, Location destination) {
 	Location oLoc = a.positionNextTurn();
 	a.queue = q;
+	a.iDestination = destination;
 	Location nLoc = a.positionNextTurn();
 	
 	gridNextTurn[nLoc.row][nLoc.col].ant = 0;
@@ -458,34 +463,44 @@ int State::directionFromPoints(Location point1, Location point2) {
 	return 1;
 };
 
-class heuristicCompare
+struct LocationContainer
 {
-  Location goal;
-  int rows;
-  int cols;
+	Location l;
+	int f_score;
+	int g_score;
+
+	LocationContainer() {
+		f_score = 0;
+	}
 
 	public:
-  heuristicCompare(const int& rowsp, const int& colsp, const Location& goalparam)
-    {
-		goal=goalparam;
-		rows = rowsp;
-		cols = colsp;
-  }
 
-  bool operator() (const Location& lhs, const Location& rhs) const
-  {
-    return locDistance(lhs, goal) > locDistance(rhs, goal);
-  }
+	LocationContainer(Location ls, int f, int g) {
+		l = ls;
+		f_score = f;
+		g_score = g;
+	}
 
-  int locDistance(const Location& loc1, const Location& loc2) const {
-	return modDistance(rows, loc1.row, loc2.row) + modDistance(cols, loc1.col, loc2.col);
-  }
-
-	int modDistance(int m, int x, int y) const {
-		int a = abs(x - y);
-		return (a < (m - a)) ? a : (m - a);
+	int getf_score() const {
+		return f_score;
 	}
 };
+
+class locContainerCompare 
+{
+
+public:
+
+	locContainerCompare() {
+
+	}
+
+	bool operator() (const LocationContainer& lhs, const LocationContainer& rhs)
+	{
+	 return (lhs.f_score > rhs.f_score);
+	}
+};
+
 
 /*
 
@@ -540,37 +555,34 @@ function A*(start,goal)
 // data: 170 steps 3ms
 // 1937 steps 62ms
 list<Location> State::bfs(Location start, Location goal) {
-	typedef priority_queue<Location, vector<Location>, heuristicCompare> mypq_type;
-	mypq_type openSet (heuristicCompare(rows, cols, goal));
+	//typedef priority_queue<Location, vector<Location>, heuristicCompare> mypq_type;
+	//mypq_type openSet (heuristicCompare(rows,cols,goal));
+	priority_queue<LocationContainer, vector<LocationContainer>, locContainerCompare> openSet;
 	map<Location, bool> openSetMap;
 	map<Location, bool> closedSet;
 	map<Location, Location> cameFrom;
 	map<Location, int> g_score;
-	map<Location, int> f_score;
-	map<Location, int> h_score;
 
 	bug << "pathfinding from " << start << " to " << goal << endl;
-
-	openSet.push(start);
 	
 	g_score[start] = 0;
-	h_score[start] = heuristic_cost_estimate(start, goal);
-	f_score[start] = g_score[start] + h_score[start];
-	
+	openSet.push(LocationContainer(start, heuristic_cost_estimate(start, goal), 0));
+	openSetMap[start] = true;
+
 	int steps = 0;
 
 	while (!openSet.empty()) {
 		steps++;
-		Location current = openSet.top();
+		LocationContainer current = openSet.top();
 		
 		openSet.pop();
-		if (locationEq(current, goal)) {
+		if (locationEq(current.l, goal) || steps >= searchStepLimit) {
 			bug << "steps taken: " << steps << endl;
-			return reconstruct_path(cameFrom, goal);
+			return reconstruct_path(cameFrom, current.l);
 		}
 			
-		closedSet[current]=true;
-		vector<Location> validNeighborsV = validNeighbors(current, start);
+		closedSet[current.l]=true;
+		vector<Location> validNeighborsV = validNeighbors(current.l, start);
 		
 		for(int i = 0;i < (int)validNeighborsV.size();i++) {
 			Location neighbor = validNeighborsV[i];
@@ -578,22 +590,20 @@ list<Location> State::bfs(Location start, Location goal) {
 			if (closedSet.count(neighbor)>0)
 				continue;
 				
-			int tentative_g_score = g_score[current] + locDistance(current,neighbor);
+			int tentative_g_score = current.g_score + locDistance(current.l,neighbor);
 			bool tentativeIsBetter = false;
 			
 			if (! (openSetMap.count(neighbor)>0)) {
-				openSet.push(neighbor);
-				openSetMap[neighbor] = true;
 				tentativeIsBetter = true;
 			} else if (tentative_g_score < g_score[neighbor]) {
 				tentativeIsBetter = true;
 			} 
 			
 			if (tentativeIsBetter) {
-				cameFrom[neighbor] = current;
+				cameFrom[neighbor] = current.l;
 				g_score[neighbor] = tentative_g_score;
-				h_score[neighbor] = heuristic_cost_estimate(neighbor, goal);
-				f_score[neighbor] = g_score[neighbor] + h_score[neighbor];
+				openSet.push(LocationContainer(neighbor,heuristic_cost_estimate(neighbor, goal)+tentative_g_score, tentative_g_score));
+				openSetMap[neighbor] = true;
 			}
 		}
 
@@ -614,7 +624,7 @@ bool State::checkDestinations(vector<Location> destinations, Location destinatio
 	return false;
 }
 
-void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance, bool retainCurrentDestination) {
+void State::getCloseFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance, bool retainCurrentDestination) {
 	vector<Ant*> tooFarAnts; 
 
 	while(!ants.empty())
@@ -657,17 +667,79 @@ void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance, 
 
 			path.pop_front();
 			if (retainCurrentDestination && !(*a).idle()) {
-				(*a).rDestination = path.back();
+				(*a).rDestination = (*a).destination();
 				(*a).intRole = (*a).role;
 			}
 			(*a).setFood();
-			setAntQueue((*a), path);
+			setAntQueue((*a), path, minFood);
 		}
 	}
 
 	while(!tooFarAnts.empty()) {
 		ants.push_back(tooFarAnts.back());
 		tooFarAnts.pop_back();
+	}
+}
+
+void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) {
+	vector<Ant*> idleAnts; 
+
+	while(!food.empty())
+	{
+		if (ants.empty())
+			break;
+
+		Location currFood = food.back();
+
+		Ant *a = ants.front();
+
+		for (vector<Ant*>::iterator antIt=ants.begin(); antIt != ants.end(); antIt++ ){
+			if ((**antIt).idle() && (!(*a).idle() || locDistance((**antIt).loc, currFood) < locDistance((*a).loc, currFood)))
+				a = *antIt;
+		}
+
+		food.pop_back();
+
+		if (locDistance((*a).loc,currFood) > maxDistance) {
+			bug << "ant too far " << locDistance((*a).loc,currFood) << endl;
+			continue;
+		}
+
+		if (!(*a).idle()) {
+			bug << "no more idle ants";
+			break;
+		}
+
+		list<Location> path = bfs((*a).loc, currFood);
+
+		if (! path.empty())
+		{
+
+			#ifdef DEBUG
+				list<Location>::iterator it;
+				bug << "food path: ";
+				for ( it=path.begin() ; it != path.end(); it++ )
+					bug << *it << " ";
+				bug << endl;
+			#endif
+
+			path.pop_front();
+
+			(*a).setFood();
+			setAntQueue((*a), path, currFood);
+		}
+	}
+
+	for (vector<Ant*>::iterator antIt=ants.begin(); antIt != ants.end(); antIt++ ){
+		if ((**antIt).idle())
+			idleAnts.push_back(*antIt);
+	}
+
+	ants.clear();
+
+	while(!idleAnts.empty()) {
+		ants.push_back(idleAnts.back());
+		idleAnts.pop_back();
 	}
 }
 
@@ -697,7 +769,7 @@ void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int antsPerHi
 			{
 				path.pop_front();
 				(*a).setAttack();
-				setAntQueue((*a), path);
+				setAntQueue((*a), path, currentHill);
 				antsSentHere++;
 			}
 		}
@@ -724,7 +796,7 @@ void State::explore(Ant &ant, int mExpDis, int maxExpDis) {
 	{
 		path.pop_front();
 		ant.setExplore();
-		setAntQueue(ant, path);
+		setAntQueue(ant, path, exploreDest);
 	}
 }
 
@@ -750,7 +822,7 @@ void State::rerouteAnt(Ant &ant) {
 	else {
 		path.pop_front();
 	
-		setAntQueue(ant, path);
+		setAntQueue(ant, path, ant.destination());
 	}
 }
 
@@ -797,7 +869,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 
 				if (!hLocs.empty())
 				{
-					Location hLoc = hLocs.front();
+					Location hLoc = hLocs[rand() % hLocs.size()];
 
 					list<Location> path = bfs(myAnts[index].loc, hLoc);
 
@@ -805,11 +877,11 @@ void State::defendHill(int antsPerTurn, double buffer) {
 					{
 						path.pop_front();
 						if (!myAnts[index].idle()) {
-							myAnts[index].rDestination = path.back();
+							myAnts[index].rDestination = myAnts[index].destination();
 							myAnts[index].intRole = myAnts[index].role;
 						}
 						myAnts[index].setDefend();
-						setAntQueue(myAnts[index], path);
+						setAntQueue(myAnts[index], path, hLoc);
 					}
 				}
 			}
@@ -917,7 +989,7 @@ vector<Ant> State::nearbyAnts(Location loc, int owner) {
 		for(int i = 0;i < (int)validNeighborsV.size();i++) {
 			if (closedSet.count(validNeighborsV[i])>0)
 				continue;
-			if (distanceSq(validNeighborsV[i],loc) < attackradius2+4) {
+			if (distanceSq(validNeighborsV[i],loc) < attackradius2+attackDistanceBuffer) {
 				neighbors.push_back(validNeighborsV[i]);
 				if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != owner))
 					close.push_back(Ant(validNeighborsV[i], grid[validNeighborsV[i].row][validNeighborsV[i].col].ant));
@@ -945,7 +1017,7 @@ Location State::nearestEnemy(Ant &ant) {
 		for(int i = 0;i < (int)validNeighborsV.size();i++) {
 			if (closedSet.count(validNeighborsV[i])>0)
 				continue;
-			if (distanceSq(validNeighborsV[i],ant.loc) < viewradius2) {
+			if (distanceSq(validNeighborsV[i],ant.loc) < 2*viewradius2) {
 				neighbors.push_back(validNeighborsV[i]);
 				if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != ant.owner))
 					return validNeighborsV[i];
@@ -964,34 +1036,30 @@ void State::retreatAntFromNearestEnemy(Ant &ant) {
 	// No enemy within sight of this ant
 	if (nearest == ant.loc)
 		return;
-	
-	int rowd = ant.loc.row - nearest.row;
-	int cold = ant.loc.col - nearest.col;
 
+	Location retreat = retreatLocation(ant, nearest);
+
+	if (retreat == ant.loc)
+		return;
+	
 	ant.queue.push_front(ant.loc);
 
-	if (abs(rowd) < abs(cold)) {
-		// closest vertically
-		if (rowd > 0) {
-			// Ant is South of nearest enemy
-			ant.queue.push_front(Location(ant.loc.row+1,ant.loc.col));
-			bug << "moving ant south" << endl;
-		} else {
-			// Ant is North of nearest enemy
-			ant.queue.push_front(Location(ant.loc.row-1,ant.loc.col));
-			bug << "moving ant north" << endl;
-		}
-	}
-	else {
-		// closest horizontally
-		if (cold > 0) {
-			// Ant is east of nearest enemy
-			ant.queue.push_front(Location(ant.loc.row,ant.loc.col+1));
-			bug << "moving ant east" << endl;
-		} else {
-			// Ant is west of nearest enemy
-			ant.queue.push_front(Location(ant.loc.row,ant.loc.col-1));
-			bug << "moving ant west" << endl;
-		}
-	}
+	ant.queue.push_front(retreat);
+}
+
+//const int DIRECTIONS[4][2] = { {-1, 0}, {0, 1}, {1, 0}, {0, -1} };      //{N, E, S, W}
+Location State::retreatLocation(Ant &ant, Location nearest) {
+	
+	vector<Location> validNeighborsV = validNeighbors(ant.loc, ant.loc);
+	
+	if (validNeighborsV.empty())
+		return ant.loc;
+
+	Location farthest = validNeighborsV.front();
+
+	for (int i = 1;i<(int)validNeighborsV.size();i++)
+		if (distanceSq(nearest,validNeighborsV[i]) > distanceSq(nearest,farthest))
+			farthest = validNeighborsV[i];
+
+	return farthest;
 }

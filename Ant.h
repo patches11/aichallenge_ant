@@ -14,7 +14,8 @@ struct Ant
 {
 	std::list<Location> queue;
     Location loc;
-	Location rDestination;
+	Location rDestination;//Interrupted Destination
+	Location iDestination;//Real destination
 	int intRole, role, owner;
 
 	Ant()
@@ -46,6 +47,14 @@ struct Ant
 
 	void setAttack() {
 		role = 2;
+	}
+
+	bool pathfindingIncomplete() {
+		return !(iDestination == queue.back());
+	}
+
+	bool wasInterrupted() {
+		return (intRole != -1);
 	}
 
 	void setDefend() {
@@ -89,7 +98,7 @@ struct Ant
 	Location destination() {
 		if (idle())
 			return loc;
-		return queue.back();
+		return iDestination;
 	}
 
 	Location positionNextTurn() {

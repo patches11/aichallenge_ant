@@ -7,7 +7,7 @@ using namespace std;
 #define maxFoodDistance 30
 #define maxExploreFoodDistance 5
 #define maxAntsToKillHillPerTurn 10
-#define timeWindowMs 50
+#define timeWindowMs 100
 #define defendAntsPerTurn 3
 #define hillBuffer 4
 
@@ -50,7 +50,7 @@ void Bot::makeMoves()
 
 	vector<Location> destinations;
 	vector<Ant*> idleAnts;
-	vector<Ant*> exploringAnts;
+	vector<Ant*> exploringOrFoodingAnts;
 	list<Location> idleFoods;
 	
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
@@ -65,24 +65,28 @@ void Bot::makeMoves()
 				state.myAnts[i].setIdle();
 				idleAnts.push_back(&state.myAnts[i]);
 			}
+			if (!state.myAnts[i].wasInterrupted() && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood()))
+				exploringOrFoodingAnts.push_back(&state.myAnts[i]);
 		} else {
-			if (state.myAnts[i].intRole != -1) {
+			if (state.myAnts[i].wasInterrupted()) {
 				list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].rDestination);
 
 				state.myAnts[i].role = state.myAnts[i].intRole;
 				state.myAnts[i].intRole = -1;
 
-				if (!path.empty()) {
+				if (path.empty()) {
+					state.myAnts[i].setIdle();
+					idleAnts.push_back(&state.myAnts[i]);
+				}
+				else {
 					path.pop_front();
 	
-					state.setAntQueue(state.myAnts[i], path);
+					state.setAntQueue(state.myAnts[i], path, state.myAnts[i].rDestination);
 				}
 			}
 			else
 				idleAnts.push_back(&state.myAnts[i]);
 		}
-		if (state.myAnts[i].exploring())
-			exploringAnts.push_back(&state.myAnts[i]);
 	}
 
 	for(int i = 0;i<(int)state.food.size();i++){
@@ -92,7 +96,7 @@ void Bot::makeMoves()
 
 	state.bug << "getting close food with exploring ants" << endl;
 	time1 = state.timer.getTime();
-	state.getFoods(exploringAnts, idleFoods, maxExploreFoodDistance, true);
+	state.getCloseFoods(exploringOrFoodingAnts, idleFoods, maxExploreFoodDistance, true);//We should do this with getting food ants as well and seperate the two versions of get food, they are different.
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))
@@ -100,7 +104,7 @@ void Bot::makeMoves()
 
 	state.bug << "getting food with idle ants" << endl;
 	time1 = state.timer.getTime();
-    state.getFoods(idleAnts, idleFoods, maxFoodDistance, false);
+    state.getFoods(idleAnts, idleFoods, maxFoodDistance);
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))
@@ -130,15 +134,15 @@ void Bot::makeMoves()
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
 		if (state.outOfTime(timeWindowMs))
 			return;
+		if (!state.myAnts[i].idle() && state.myAnts[i].pathfindingIncomplete() && state.myAnts[i].queue.size() == 1) {
+			// Ant was interrupted and hasn't reached its destination and we are on the last move of this interruption
+			state.rerouteAnt(state.myAnts[i]);
+		}
 		if (state.myAnts[i].idle() && state.isOnMyHill(state.myAnts[i].loc)) {
 			state.explore(state.myAnts[i], 4, 6);
 		}
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);
-		}
-		if(!state.myAnts[i].idle() && (state.myAnts[i].isGettingFood() || state.myAnts[i].isExploring()) && state.willAntDie(state.myAnts[i].positionNextTurn())) {
-			state.bug << "retreating ant at " << state.myAnts[i].loc << endl;
-			state.retreatAntFromNearestEnemy(state.myAnts[i]);
 		}
 		for (int j = i+1;j<(int)state.myAnts.size();j++)
 			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {

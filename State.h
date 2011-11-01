@@ -98,7 +98,7 @@ struct State
 
 	bool passableNextTurn(const Location &loc);
 
-	void setAntQueue(Ant &a, std::list<Location> q);
+	void setAntQueue(Ant &a, std::list<Location> q, Location destination);
 
 	bool isOnMyHill(const Location &current);
 
@@ -114,7 +114,9 @@ struct State
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);
 
-	void getFoods(std::vector<Ant*> &ants, std::list<Location> &food, int maxDistance, bool retainCurrentDestination);
+	void getCloseFoods(std::vector<Ant*> &ants, std::list<Location> &food, int maxDistance, bool retainCurrentDestination);
+
+	void getFoods(std::vector<Ant*> &ants, std::list<Location> &food, int maxDistance);
 
 	void killHills(std::vector<Ant*> &ants, std::vector<Location> &hills, int maxDistance);
 
@@ -131,6 +133,8 @@ struct State
 	void retreatAntFromNearestEnemy(Ant &ant);
 
 	Location nearestEnemy(Ant &ant);
+
+	Location retreatLocation(Ant &ant, Location nearest);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);
