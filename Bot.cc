@@ -136,6 +136,10 @@ void Bot::makeMoves()
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);
 		}
+		if(!state.myAnts[i].idle() && (state.myAnts[i].isGettingFood() || state.myAnts[i].isExploring()) && state.willAntDie(state.myAnts[i].positionNextTurn())) {
+			state.bug << "retreating ant at " << state.myAnts[i].loc << endl;
+			state.retreatAntFromNearestEnemy(state.myAnts[i]);
+		}
 		for (int j = i+1;j<(int)state.myAnts.size();j++)
 			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {
 				if (state.myAnts[j].idle()) {

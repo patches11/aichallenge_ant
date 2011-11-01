@@ -884,15 +884,15 @@ bool State::willAntDie(Location loc) {
 	if (weakness == 0)
 		return false;
 
-	int max_enemy_weakness = 0;
+	int min_enemy_weakness = 0;
 
 	for(int j = 0;j< (int)enemies.size();j++) {
 		int tWeak = nearbyAnts(enemies[j].loc, enemies[j].owner).size();
-		if(tWeak > max_enemy_weakness)
-			max_enemy_weakness = tWeak;
+		if(tWeak < min_enemy_weakness)
+			min_enemy_weakness = tWeak;
 	}
 
-	if (max_enemy_weakness >= weakness)
+	if (min_enemy_weakness <= weakness)
 		return true;
 
 	return false;
@@ -902,16 +902,22 @@ vector<Ant> State::nearbyAnts(Location loc, int owner) {
 	vector<Location> neighbors;
 	vector<Ant> close;
 
+	map<Location, bool> closedSet;
+
 	neighbors.push_back(loc);
 	while(!neighbors.empty())
 	{
 		Location current = neighbors.back();
 		neighbors.pop_back();
 
-		vector<Location> validNeighborsV = validNeighbors(loc);
+		closedSet[current] = true;
+
+		vector<Location> validNeighborsV = validNeighbors(current);
 		
 		for(int i = 0;i < (int)validNeighborsV.size();i++) {
-			if (distanceSq(validNeighborsV[i],loc) < attackradius2) {
+			if (closedSet.count(validNeighborsV[i])>0)
+				continue;
+			if (distanceSq(validNeighborsV[i],loc) < attackradius2+4) {
 				neighbors.push_back(validNeighborsV[i]);
 				if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != owner))
 					close.push_back(Ant(validNeighborsV[i], grid[validNeighborsV[i].row][validNeighborsV[i].col].ant));
@@ -920,4 +926,72 @@ vector<Ant> State::nearbyAnts(Location loc, int owner) {
 	}
 
 	return close;
+}
+
+Location State::nearestEnemy(Ant &ant) {
+	vector<Location> neighbors;
+	map<Location, bool> closedSet;
+
+	neighbors.push_back(ant.loc);
+	while(!neighbors.empty())
+	{
+		Location current = neighbors.back();
+		neighbors.pop_back();
+
+		closedSet[current] = true;
+
+		vector<Location> validNeighborsV = validNeighbors(current);
+
+		for(int i = 0;i < (int)validNeighborsV.size();i++) {
+			if (closedSet.count(validNeighborsV[i])>0)
+				continue;
+			if (distanceSq(validNeighborsV[i],ant.loc) < viewradius2) {
+				neighbors.push_back(validNeighborsV[i]);
+				if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != ant.owner))
+					return validNeighborsV[i];
+			}
+		}
+	}
+
+	return ant.loc;
+}
+
+void State::retreatAntFromNearestEnemy(Ant &ant) {
+	Location nearest = nearestEnemy(ant);
+
+	bug << "nearest enemy at: " << nearest << endl;
+
+	// No enemy within sight of this ant
+	if (nearest == ant.loc)
+		return;
+	
+	int rowd = ant.loc.row - nearest.row;
+	int cold = ant.loc.col - nearest.col;
+
+	ant.queue.push_front(ant.loc);
+
+	if (abs(rowd) < abs(cold)) {
+		// closest vertically
+		if (rowd > 0) {
+			// Ant is South of nearest enemy
+			ant.queue.push_front(Location(ant.loc.row+1,ant.loc.col));
+			bug << "moving ant south" << endl;
+		} else {
+			// Ant is North of nearest enemy
+			ant.queue.push_front(Location(ant.loc.row-1,ant.loc.col));
+			bug << "moving ant north" << endl;
+		}
+	}
+	else {
+		// closest horizontally
+		if (cold > 0) {
+			// Ant is east of nearest enemy
+			ant.queue.push_front(Location(ant.loc.row,ant.loc.col+1));
+			bug << "moving ant east" << endl;
+		} else {
+			// Ant is west of nearest enemy
+			ant.queue.push_front(Location(ant.loc.row,ant.loc.col-1));
+			bug << "moving ant west" << endl;
+		}
+	}
 }

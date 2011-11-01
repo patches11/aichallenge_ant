@@ -127,6 +127,10 @@ struct State
 	bool outOfTime(double marginOfError);
 
 	void defendHill(int antsPerTurn, double buffer);
+
+	void retreatAntFromNearestEnemy(Ant &ant);
+
+	Location nearestEnemy(Ant &ant);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);

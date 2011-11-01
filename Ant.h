@@ -60,6 +60,14 @@ struct Ant
 		return role == 2;
 	}
 
+	bool isExploring() {
+		return role == 0;
+	}
+
+	bool isGettingFood() {
+		return role == 1;
+	}
+
 	void setIdle() {
 		role = -1;
 		queue.clear();
