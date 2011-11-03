@@ -2,17 +2,22 @@
 
 using namespace std;
 
-#define exploreDistanceModifier 2
-#define minExploreDistanceModifier 1
+// Add max distance to kill hill?
+// Use a non - uniform distribution for explore?
+
+#define exploreDistanceModifier 5
+#define minExploreDistanceModifier 2
 #define maxFoodDistance 30
 #define maxExploreFoodDistance 5
 #define maxExploreKillHillDistance 3
 #define maxAntsToKillHillPerTurn 10
-// Add max distance to kill hill?
 #define timeWindowMs 100
 #define defendAntsPerTurn 2
 #define hillBuffer 2
 #define defendTurns 1
+#define minAntsFoodingToKillPercent 0.30
+#define exploreDistanceDivisor 200
+#define minExploreDistanceDivisor 500
 
 //constructor
 Bot::Bot()
@@ -27,8 +32,8 @@ void Bot::playGame(int argc, char *argv[])
     //reads the game parameters and sets up
     cin >> state;
     state.setup();
-	state.setExploreDistance(exploreDistanceModifier, 400);
-	state.setMinExploreDistance(minExploreDistanceModifier, 1000);
+	state.setExploreDistance(exploreDistanceModifier, exploreDistanceDivisor);
+	state.setMinExploreDistance(minExploreDistanceModifier, minExploreDistanceDivisor);
     endTurn();
 
     //continues making moves while the game is not over
@@ -57,6 +62,9 @@ void Bot::makeMoves()
 	vector<Ant*> exploringOrFoodingAnts;
 	list<Location> idleFoods;
 	
+	int killCount, defendCount, foodCount, exploreCount;
+	killCount = defendCount = foodCount = exploreCount = 0;
+
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
 		if (state.myAnts[i].isDefending() && !state.hillsAtRisk) {
 			state.myAnts[i].setIdle();
@@ -69,8 +77,17 @@ void Bot::makeMoves()
 			}else if (state.myAnts[i].isGettingFood() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isFood) {
 				state.myAnts[i].setIdle();
 				idleAnts.push_back(&state.myAnts[i]);
-			} else if (state.passable(destination))
+			} else if (state.passable(destination)) {
+				if (state.myAnts[i].isAttacking())
+					killCount++;
+				else if (state.myAnts[i].isDefending())
+					defendCount++;
+				else if (state.myAnts[i].isGettingFood())
+					foodCount++;
+				else if (state.myAnts[i].isExploring())
+					exploreCount++;
 				destinations.push_back(destination);
+			}
 			else {
 				state.myAnts[i].setIdle();
 				idleAnts.push_back(&state.myAnts[i]);
@@ -119,11 +136,13 @@ void Bot::makeMoves()
 	if (state.outOfTime(timeWindowMs))
 		return;
 
-	//May want to consider adding some code to kill hills if we are close to them. 
-	state.bug << "killing hills with idle ants" << endl;
-	time1 = state.timer.getTime();
-	state.killHills(idleAnts, state.enemyHills, maxAntsToKillHillPerTurn);
-	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+	// Only kill hills if more than 30% of our ants are getting food or exploring
+	if ((foodCount+exploreCount)/((double)state.myAnts.size()) > minAntsFoodingToKillPercent ) {
+		state.bug << "killing hills with idle ants" << endl;
+		time1 = state.timer.getTime();
+		state.killHills(idleAnts, state.enemyHills, maxAntsToKillHillPerTurn);
+		state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+	}
 
 	if (state.outOfTime(timeWindowMs))
 		return;

@@ -50,6 +50,7 @@ bool State::xAwayFromMyHill(int dis, Location current) {
 int State::randomWithNeg(int min, int distance) {
 	int r = (rand() % (2*distance)) - distance;
 	r += (r >= 0) ? min : (-min);
+	bug << "random: " << r << endl;
 	return r;
 }
 
@@ -93,7 +94,7 @@ void State::moveAnt(Ant &a)
 		
 	int direction = directionFromPoints(a.loc,a.queue.front());
 
-	bug << "moving ant at " << a.loc << CDIRECTIONS[direction] << endl;
+	bug << "moving ant at " << a.loc << " " << CDIRECTIONS[direction] << " " << a.roleText() << endl;
 
 	cout << "o " << loc.row << " " << loc.col << " " << CDIRECTIONS[direction] << endl;
 

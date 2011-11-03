@@ -2,6 +2,7 @@
 #define ANT_H_
 
 #include <list>
+#include <string>
 
 #include "Location.h"
 
@@ -37,6 +38,13 @@ struct Ant
 		owner = o;
 		defendCounter = 0;
     };
+
+	std::string roleText() {
+		if (role == -1)
+			return "idle";
+		else
+			return CROLES[role];
+	};
 
 	void setExplore() {
 		role = 0;
