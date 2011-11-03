@@ -36,11 +36,11 @@ struct State
     */
     int rows, cols,
         turn, turns,
-        noPlayers;
+        noPlayers, exploreDistance, minExploreDistance;
     double attackradius, spawnradius, viewradius, attackradius2, viewradius2;
     double loadtime, turntime;
     std::vector<double> scores;
-    bool gameover;
+    bool gameover, hillsAtRisk;
     int64_t seed;
 
     std::vector<std::vector<Square> > grid;
@@ -110,6 +110,16 @@ struct State
 
 	std::vector<Ant> nearbyAnts(Location loc, int owner);
 
+	int calcExploreDistance(int modifier, int divisor);
+
+	int getExploreDistance();
+
+	int getMinExploreDistance();
+
+	void setExploreDistance(int modifier, int divisor);
+
+	void setMinExploreDistance(int modifier, int divisor);
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);
@@ -135,6 +145,8 @@ struct State
 	Location nearestEnemy(Ant &ant);
 
 	Location retreatLocation(Ant &ant, Location nearest);
+
+	void killCloseHills(std::vector<Ant*> &ants, int maxDistance, bool retainCurrentDestination);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);

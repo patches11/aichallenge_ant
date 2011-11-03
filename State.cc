@@ -4,6 +4,7 @@ using namespace std;
 
 #define attackDistanceBuffer 6
 #define searchStepLimit 550
+#define minExploreDistanceFromHill 2
 
 //constructor
 State::State()
@@ -11,6 +12,7 @@ State::State()
     gameover = 0;
     turn = 0;
     bug.open("./debug.txt");
+	hillsAtRisk = false;
 };
 
 //deconstructor
@@ -33,7 +35,7 @@ bool State::outOfTime(double marginOfError) {
 Location State::randomLocation(Location origin, int min, int distance) {
 	Location loc = Location((origin.row + randomWithNeg(min, distance) + rows) % rows,
 							(origin.col + randomWithNeg(min, distance) + cols) % cols);
-	if (passable(loc) && xAwayFromMyHill(4,loc))
+	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
 		return loc;
 	return randomLocation(origin, min, distance);
 }
@@ -58,6 +60,7 @@ void State::reset()
 	for(int i = 0;i<(int)myAnts.size();i++) {
 		antsMap[myAnts[i].loc] = myAnts[i];
 	}
+	hillsAtRisk = false;
     myAnts.clear();
     enemyAnts.clear();
     myHills.clear();
@@ -67,7 +70,7 @@ void State::reset()
         for(int col=0; col<cols; col++)
             if(!grid[row][col].isWater) {
                 grid[row][col].reset();
-				gridNextTurn[row][col].reset();
+				gridNextTurn[row][col].ant = 0;
 			}
 };
 
@@ -175,10 +178,16 @@ bool State::isOnMyHill(const Location &current) {
 }
 
 bool State::passableNextTurn(const Location &loc) {
-	if (grid[loc.row][loc.col].isWater)
+	bug << "using passableNextTurn " << loc << " : ";
+	if (grid[loc.row][loc.col].isWater) {
+		bug << "false" << endl;
 		return false;
-	if (gridNextTurn[loc.row][loc.col].ant == 0)
+	}
+	if (gridNextTurn[loc.row][loc.col].ant>0) {
+		bug << "false" << endl;
 		return false;
+	}
+	bug << "true" << endl;
 	return true;
 };
 
@@ -366,7 +375,7 @@ istream& operator>>(istream &is, State &state)
 						state.myAnts.push_back(it -> second);
 					}
 					Location nLoc = state.myAnts.back().positionNextTurn();
-					state.gridNextTurn[nLoc.row][nLoc.col].ant = 0;
+					state.gridNextTurn[nLoc.row][nLoc.col].ant++;
 				} else
                     state.enemyAnts.push_back(Ant(Location(row, col),player));
             }
@@ -418,8 +427,8 @@ void State::setAntQueue(Ant &a, list<Location> q, Location destination) {
 	a.iDestination = destination;
 	Location nLoc = a.positionNextTurn();
 	
-	gridNextTurn[nLoc.row][nLoc.col].ant = 0;
-    gridNextTurn[oLoc.row][oLoc.col].ant = -1;
+	gridNextTurn[nLoc.row][nLoc.col].ant++;
+    gridNextTurn[oLoc.row][oLoc.col].ant--;
 }
 
 bool State::locationEq(Location a, Location b) {
@@ -656,15 +665,6 @@ void State::getCloseFoods(vector<Ant*> &ants, list<Location> &food, int maxDista
 
 		if (! path.empty())
 		{
-
-#ifdef DEBUG
-			list<Location>::iterator it;
-			bug << "food path: ";
-			for ( it=path.begin() ; it != path.end(); it++ )
-				bug << *it << " ";
-			bug << endl;
-#endif
-
 			path.pop_front();
 			if (retainCurrentDestination && !(*a).idle()) {
 				(*a).rDestination = (*a).destination();
@@ -672,6 +672,52 @@ void State::getCloseFoods(vector<Ant*> &ants, list<Location> &food, int maxDista
 			}
 			(*a).setFood();
 			setAntQueue((*a), path, minFood);
+		}
+	}
+
+	while(!tooFarAnts.empty()) {
+		ants.push_back(tooFarAnts.back());
+		tooFarAnts.pop_back();
+	}
+}
+
+void State::killCloseHills(vector<Ant*> &ants, int maxDistance, bool retainCurrentDestination) {
+	vector<Ant*> tooFarAnts; 
+
+	while(!ants.empty())
+	{
+		if (enemyHills.empty())
+			break;
+
+		Ant *a = ants.back();
+
+		Location minHill = enemyHills.front();
+
+		for (vector<Location>::iterator hillIt=enemyHills.begin(); hillIt != enemyHills.end(); hillIt++ ){
+			if ( locDistance((*a).loc, *hillIt) < locDistance((*a).loc, minHill))
+				minHill = *hillIt;
+		}
+
+		if (locDistance((*a).loc,minHill) > maxDistance) {
+			bug << "ant too far " << locDistance((*a).loc,minHill) << endl;
+			tooFarAnts.push_back(a);
+			ants.pop_back();
+			continue;
+		}
+
+		ants.pop_back();
+
+		list<Location> path = bfs((*a).loc, minHill);
+
+		if (! path.empty())
+		{
+			path.pop_front();
+			if (retainCurrentDestination && !(*a).idle()) {
+				(*a).rDestination = (*a).destination();
+				(*a).intRole = (*a).role;
+			}
+			(*a).setFood();
+			setAntQueue((*a), path, minHill);
 		}
 	}
 
@@ -816,6 +862,14 @@ void State::goExplore(vector<Ant*> &ants, int mExpDis, int maxExpDis)
 void State::rerouteAnt(Ant &ant) {
 	list<Location> path = bfs(ant.loc, ant.destination());
 
+	#ifdef DEBUG
+		list<Location>::iterator it;
+		bug << "reroute path: ";
+		for ( it=path.begin() ; it != path.end(); it++ )
+			bug << *it << " ";
+		bug << endl;
+	#endif
+
 	if (path.empty()) {
 		ant.setIdle();
 	}
@@ -826,20 +880,18 @@ void State::rerouteAnt(Ant &ant) {
 	}
 }
 
-//On small maps this can cause probems even if enemy ants can't get to the hill: (ie. they are in view distance but they can't find a route)
 void State::defendHill(int antsPerTurn, double buffer) {
 
 	vector<int> exclude;
 	vector<Location> closeAnts;
-
+	vector<Location> neighbors;
+	map<Location, bool> closedSet;
 
 	for(int i = 0;i<(int)myHills.size();i++) {
 		bool atRisk = false;
 
-		vector<Location> neighbors;
-		map<Location, bool> closedSet;
-
 		neighbors.push_back(myHills[i]);
+
 		while(!neighbors.empty())
 		{
 			Location current = neighbors.back();
@@ -849,23 +901,25 @@ void State::defendHill(int antsPerTurn, double buffer) {
 
 			vector<Location> validNeighborsV = validNeighbors(current);
 
-			for(int i = 0;i < (int)validNeighborsV.size();i++) {
-				if (closedSet.count(validNeighborsV[i])>0)
+			for(int j = 0;j < (int)validNeighborsV.size();j++) {
+				if (closedSet.count(validNeighborsV[j])>0)
 					continue;
-				if (distanceSq(validNeighborsV[i],myHills[i]) < viewradius2 + buffer) {
-					neighbors.push_back(validNeighborsV[i]);
-					if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != 0)) {
+				if (distanceSq(validNeighborsV[j],myHills[i]) < viewradius2 + buffer) {
+					neighbors.push_back(validNeighborsV[j]);
+					if (grid[validNeighborsV[j].row][validNeighborsV[j].col].ant > 0) {
 						atRisk = true;
-						closeAnts.push_back(validNeighborsV[i]);
+						closeAnts.push_back(validNeighborsV[j]);
 					}
 				}
 			}
 		}
+		neighbors.clear();
+		closedSet.clear();
 
 		if (atRisk) {
-			int antsTaken = 0;
-
-			for(;antsTaken < antsPerTurn;antsTaken++) {
+			hillsAtRisk = true;
+			bug << "hill " << myHills[i] << " at risk" << endl;
+			for(int antsTaken = 0;antsTaken < antsPerTurn && antsTaken < (int)closeAnts.size();antsTaken++) {
 
 				if (exclude.size() == myAnts.size())
 					break;
@@ -892,6 +946,8 @@ void State::defendHill(int antsPerTurn, double buffer) {
 					Location hLoc = hLocs[rand() % hLocs.size()];
 
 					list<Location> path = bfs(myAnts[index].loc, hLoc);
+
+					bug << "sending ant at " << myAnts[index].loc << endl;
 
 					if (! path.empty())
 					{
@@ -1082,4 +1138,29 @@ Location State::retreatLocation(Ant &ant, Location nearest) {
 			farthest = validNeighborsV[i];
 
 	return farthest;
+}
+
+
+int State::calcExploreDistance(int modifier, int divisor) {
+	int t = (cols*rows/noPlayers)/divisor;
+
+	return t + modifier;
+}
+
+int State::getExploreDistance() {
+	return exploreDistance;
+}
+
+int State::getMinExploreDistance() {
+	return minExploreDistance;
+}
+
+void State::setExploreDistance(int modifier, int divisor) {
+	exploreDistance = calcExploreDistance(modifier, divisor);
+	bug << "set explore distance at " << exploreDistance << endl;
+}
+
+void State::setMinExploreDistance(int modifier, int divisor) {
+	minExploreDistance = calcExploreDistance(modifier, divisor);
+	bug << "set min explore distance at " << minExploreDistance << endl;
 }

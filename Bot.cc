@@ -2,15 +2,17 @@
 
 using namespace std;
 
-#define exploreDistance 10
-#define minExploreDistance 5
+#define exploreDistanceModifier 2
+#define minExploreDistanceModifier 1
 #define maxFoodDistance 30
 #define maxExploreFoodDistance 5
+#define maxExploreKillHillDistance 3
 #define maxAntsToKillHillPerTurn 10
+// Add max distance to kill hill?
 #define timeWindowMs 100
-#define defendAntsPerTurn 3
-#define hillBuffer 4
-#define defendTurns 3
+#define defendAntsPerTurn 2
+#define hillBuffer 2
+#define defendTurns 1
 
 //constructor
 Bot::Bot()
@@ -18,12 +20,15 @@ Bot::Bot()
 
 };
 
+
 //plays a single game of Ants.
-void Bot::playGame()
+void Bot::playGame(int argc, char *argv[])
 {
     //reads the game parameters and sets up
     cin >> state;
     state.setup();
+	state.setExploreDistance(exploreDistanceModifier, 400);
+	state.setMinExploreDistance(minExploreDistanceModifier, 1000);
     endTurn();
 
     //continues making moves while the game is not over
@@ -45,7 +50,7 @@ void Bot::makeMoves()
 	state.bug << "defending hills with close ants" << endl;
 	double time1 = state.timer.getTime();
 	state.defendHill(defendAntsPerTurn, hillBuffer);
-	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+	state.bug << "defendHill time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	vector<Location> destinations;
 	vector<Ant*> idleAnts;
@@ -53,6 +58,9 @@ void Bot::makeMoves()
 	list<Location> idleFoods;
 	
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
+		if (state.myAnts[i].isDefending() && !state.hillsAtRisk) {
+			state.myAnts[i].setIdle();
+		}
 		if (!state.myAnts[i].idle()) {
 			Location destination = state.myAnts[i].destination();
 			if (state.myAnts[i].isAttacking() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isHill) {
@@ -98,7 +106,12 @@ void Bot::makeMoves()
 			idleFoods.push_back(state.food[i]);
 	}
 
-	state.bug << "getting close food with exploring ants" << endl;
+	state.bug << "killing close hills with exploring or fooding ants" << endl;
+	time1 = state.timer.getTime();
+	state.killCloseHills(exploringOrFoodingAnts, maxExploreKillHillDistance, true);
+	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+
+	state.bug << "getting close food with exploring or fooding ants" << endl;
 	time1 = state.timer.getTime();
 	state.getCloseFoods(exploringOrFoodingAnts, idleFoods, maxExploreFoodDistance, true);
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
@@ -125,7 +138,7 @@ void Bot::makeMoves()
 
 	state.bug << "exploring with remaining ants" << endl;
 	time1 = state.timer.getTime();
-	state.goExplore(idleAnts, minExploreDistance, exploreDistance);
+	state.goExplore(idleAnts, state.getMinExploreDistance(), state.getExploreDistance());
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))

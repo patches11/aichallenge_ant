@@ -4,7 +4,7 @@ using namespace std;
 
 ostream& operator<<(ostream &os, const Location &loc)
 {
-	os << '(' << (int) loc.row << ',' << ' ' << (int) loc.col << ')';
+	os << '(' << (int) loc.col << ',' << ' ' <<  (int) loc.row << ')';
 
     return os;
 }
