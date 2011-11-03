@@ -10,6 +10,7 @@ using namespace std;
 #define timeWindowMs 100
 #define defendAntsPerTurn 3
 #define hillBuffer 4
+#define defendTurns 3
 
 //constructor
 Bot::Bot()
@@ -69,7 +70,9 @@ void Bot::makeMoves()
 			if (!state.myAnts[i].wasInterrupted() && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood()))
 				exploringOrFoodingAnts.push_back(&state.myAnts[i]);
 		} else {
-			if (state.myAnts[i].wasInterrupted()) {
+			if (state.myAnts[i].isDefending() && state.myAnts[i].defendCounter < defendTurns) {
+				state.myAnts[i].defendCounter++;
+			} else if (state.myAnts[i].wasInterrupted()) {
 				list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].rDestination);
 
 				state.myAnts[i].role = state.myAnts[i].intRole;
@@ -103,6 +106,7 @@ void Bot::makeMoves()
 	if (state.outOfTime(timeWindowMs))
 		return;
 
+	//May want to consider adding some code to kill hills if we are close to them. 
 	state.bug << "killing hills with idle ants" << endl;
 	time1 = state.timer.getTime();
 	state.killHills(idleAnts, state.enemyHills, maxAntsToKillHillPerTurn);

@@ -684,21 +684,21 @@ void State::getCloseFoods(vector<Ant*> &ants, list<Location> &food, int maxDista
 void State::getFoods(vector<Ant*> &ants, list<Location> &food, int maxDistance) {
 	vector<Ant*> idleAnts; 
 
-	while(!food.empty())
+	while(!food.empty() && !ants.empty())
 	{
-		if (ants.empty())
-			break;
 
-		Location currFood = food.back();
+		Location currFood = food.front();
 
 		Ant *a = ants.front();
 
-		for (vector<Ant*>::iterator antIt=ants.begin(); antIt != ants.end(); antIt++ ){
-			if ((**antIt).idle() && (!(*a).idle() || locDistance((**antIt).loc, currFood) < locDistance((*a).loc, currFood)))
-				a = *antIt;
-		}
+		for(list<Location>::iterator foodIt=food.begin(); foodIt != food.end(); foodIt++)
+			for (vector<Ant*>::iterator antIt=ants.begin(); antIt != ants.end(); antIt++ )
+				if ((**antIt).idle() && (!(*a).idle() || locDistance((**antIt).loc, *foodIt) < locDistance((*a).loc, currFood))) {
+					a = *antIt;
+					currFood = *foodIt;
+				}
 
-		food.pop_back();
+		food.remove(currFood);
 
 		if (locDistance((*a).loc,currFood) > maxDistance) {
 			bug << "ant too far " << locDistance((*a).loc,currFood) << endl;
@@ -826,21 +826,41 @@ void State::rerouteAnt(Ant &ant) {
 	}
 }
 
-//Not working?
+//On small maps this can cause probems even if enemy ants can't get to the hill: (ie. they are in view distance but they can't find a route)
 void State::defendHill(int antsPerTurn, double buffer) {
 
 	vector<int> exclude;
-	vector<Ant> closeAnts;
+	vector<Location> closeAnts;
 
 
 	for(int i = 0;i<(int)myHills.size();i++) {
 		bool atRisk = false;
-		
-		for(int k = 0;k<(int)enemyAnts.size();k++)
-			if (distanceSq(enemyAnts[k].loc,myHills[i]) < viewradius2 + buffer) {
-				atRisk = true;
-				closeAnts.push_back(enemyAnts[k]);
+
+		vector<Location> neighbors;
+		map<Location, bool> closedSet;
+
+		neighbors.push_back(myHills[i]);
+		while(!neighbors.empty())
+		{
+			Location current = neighbors.back();
+			neighbors.pop_back();
+
+			closedSet[current] = true;
+
+			vector<Location> validNeighborsV = validNeighbors(current);
+
+			for(int i = 0;i < (int)validNeighborsV.size();i++) {
+				if (closedSet.count(validNeighborsV[i])>0)
+					continue;
+				if (distanceSq(validNeighborsV[i],myHills[i]) < viewradius2 + buffer) {
+					neighbors.push_back(validNeighborsV[i]);
+					if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != 0)) {
+						atRisk = true;
+						closeAnts.push_back(validNeighborsV[i]);
+					}
+				}
 			}
+		}
 
 		if (atRisk) {
 			int antsTaken = 0;
