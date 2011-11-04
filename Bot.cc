@@ -5,8 +5,8 @@ using namespace std;
 // Add max distance to kill hill?
 // Use a non - uniform distribution for explore?
 
-#define exploreDistanceModifier 5
-#define minExploreDistanceModifier 2
+#define exploreDistanceModifier 3
+#define minExploreDistanceModifier 1
 #define maxFoodDistance 30
 #define maxExploreFoodDistance 5
 #define maxExploreKillHillDistance 3
@@ -16,7 +16,7 @@ using namespace std;
 #define hillBuffer 2
 #define defendTurns 1
 #define minAntsFoodingToKillPercent 0.30
-#define exploreDistanceDivisor 400
+#define exploreDistanceDivisor 300
 #define minExploreDistanceDivisor 1000
 #define maxTurnsToRetreat 6
 
@@ -184,7 +184,7 @@ void Bot::makeMoves()
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);
 		}
-		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && state.myAnts[i].turnsRetreating < maxTurnsToRetreat && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle())) {
+		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && state.myAnts[i].turnsRetreating < maxTurnsToRetreat && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle()) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
 			state.retreatAntFromNearestEnemy(state.myAnts[i]);
 		}
 		for (int j = i+1;j<(int)state.myAnts.size();j++)

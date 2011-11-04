@@ -5,6 +5,7 @@ using namespace std;
 #define attackDistanceBuffer 8
 #define searchStepLimit 550
 #define minExploreDistanceFromHill 2
+#define expLamda 0.5
 
 //constructor
 State::State()
@@ -40,6 +41,14 @@ Location State::randomLocation(Location origin, int min, int distance) {
 	return randomLocation(origin, min, distance);
 }
 
+Location State::randomLocationExp(Location origin, int min, int distance) {
+	Location loc = Location((origin.row + randomWithNegExp(min, distance) + rows) % rows,
+							(origin.col + randomWithNegExp(min, distance) + cols) % cols);
+	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
+		return loc;
+	return randomLocationExp(origin, min, distance);
+}
+
 bool State::xAwayFromMyHill(int dis, Location current) {
 	for(int i = 0;i<(int)myHills.size();i++)
 		if(locDistance(myHills[i],current) <= dis)
@@ -56,16 +65,16 @@ int State::randomWithNeg(int min, int distance) {
 
 int State::randomWithNegExp(int min, int distance) {
 	bool positive = rand() % 2 == 0 ? true : false;
-	double x = lnApprox(1-((double)rand()/(double)RAND_MAX),25)/(.05);
+	double x = (-lnApprox(((double)rand()/(double)RAND_MAX),25))/(expLamda);
+	bug << "random Exp ln: " << x;
 	x = x*distance + min;
 	if (!positive)
 		x = -x;
+	bug << " result: " << (int)x << endl;
 	return (int)x;
 }
 
 double State::lnApprox(double x, int steps) {
-	if (x<1)
-		return 0;
 	double result = x - 1;
 	for(int i=2;i<steps;i++)
 		if (i % 2 == 0)
@@ -851,7 +860,8 @@ void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int antsPerHi
 }
 
 void State::explore(Ant &ant, int mExpDis, int maxExpDis) {
-	Location exploreDest = randomLocation(ant.loc, mExpDis, maxExpDis);
+	//Testing out using an exponential distribution for exploring
+	Location exploreDest = randomLocationExp(ant.loc, mExpDis, maxExpDis);
 
 	bug << "exploring from " << ant.loc << " to " << exploreDest  << endl;
 
@@ -905,6 +915,13 @@ void State::rerouteAnt(Ant &ant) {
 	
 		setAntQueue(ant, path, ant.destination());
 	}
+}
+
+bool State::xAwayFromMyHills(Ant &ant, double buffer) {
+	for(int i = 0;i<(int)myHills.size();i++)
+		if (distanceSq(ant.loc,myHills[i]) < viewradius2 + buffer)
+			return false;
+	return true;
 }
 
 void State::defendHill(int antsPerTurn, double buffer) {

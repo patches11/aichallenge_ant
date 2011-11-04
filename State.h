@@ -126,6 +126,10 @@ struct State
 
 	double lnApprox(double x, int steps);
 
+	Location randomLocationExp(Location origin, int min, int distance);
+
+	bool xAwayFromMyHills(Ant &ant, double buffer);
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);
