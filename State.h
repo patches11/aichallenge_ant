@@ -120,6 +120,12 @@ struct State
 
 	void setMinExploreDistance(int modifier, int divisor);
 
+	int randomWithNegExp(int min, int distance);
+
+	double pow(double x, int y);
+
+	double lnApprox(double x, int steps);
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);

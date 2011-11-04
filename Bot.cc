@@ -16,8 +16,9 @@ using namespace std;
 #define hillBuffer 2
 #define defendTurns 1
 #define minAntsFoodingToKillPercent 0.30
-#define exploreDistanceDivisor 200
-#define minExploreDistanceDivisor 500
+#define exploreDistanceDivisor 400
+#define minExploreDistanceDivisor 1000
+#define maxTurnsToRetreat 6
 
 //constructor
 Bot::Bot()
@@ -46,6 +47,8 @@ void Bot::playGame(int argc, char *argv[])
 };
 
 //makes the bots moves for the turn
+
+//Have some timeouts and crashes...
 void Bot::makeMoves()
 {
     state.bug << "turn " << state.turn << ":" << endl;
@@ -180,6 +183,9 @@ void Bot::makeMoves()
 		}
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);
+		}
+		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && state.myAnts[i].turnsRetreating < maxTurnsToRetreat && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle())) {
+			state.retreatAntFromNearestEnemy(state.myAnts[i]);
 		}
 		for (int j = i+1;j<(int)state.myAnts.size();j++)
 			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {

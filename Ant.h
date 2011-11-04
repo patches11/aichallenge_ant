@@ -18,9 +18,15 @@ struct Ant
 	Location rDestination;//Interrupted Destination, if Ant is sent to get close food
 	Location iDestination;//Real destination, may not match queue.back() because of interrupted pathfinding
 	int intRole, role, owner, defendCounter;
+	int turnsRetreating, retreatCount;
 
 	Ant()
     {
+		role = -1;
+		intRole = -1;
+		owner = 0;
+		defendCounter = 0;
+		turnsRetreating = retreatCount = 0;
     };
 
     Ant(Location l)
@@ -28,6 +34,9 @@ struct Ant
         loc = l;
 		role = -1;
 		intRole = -1;
+		owner = 0;
+		defendCounter = 0;
+		turnsRetreating = retreatCount = 0;
     };
 
 	Ant(Location l, int o)
@@ -37,7 +46,15 @@ struct Ant
 		intRole = -1;
 		owner = o;
 		defendCounter = 0;
+		turnsRetreating = retreatCount = 0;
     };
+
+	void countRetreating() {
+		if (retreatCount > 0) {
+			retreatCount--;
+			turnsRetreating++;
+		}
+	}
 
 	std::string roleText() {
 		if (role == -1)

@@ -2,7 +2,7 @@
 
 using namespace std;
 
-#define attackDistanceBuffer 6
+#define attackDistanceBuffer 8
 #define searchStepLimit 550
 #define minExploreDistanceFromHill 2
 
@@ -54,6 +54,36 @@ int State::randomWithNeg(int min, int distance) {
 	return r;
 }
 
+int State::randomWithNegExp(int min, int distance) {
+	bool positive = rand() % 2 == 0 ? true : false;
+	double x = lnApprox(1-((double)rand()/(double)RAND_MAX),25)/(.05);
+	x = x*distance + min;
+	if (!positive)
+		x = -x;
+	return (int)x;
+}
+
+double State::lnApprox(double x, int steps) {
+	if (x<1)
+		return 0;
+	double result = x - 1;
+	for(int i=2;i<steps;i++)
+		if (i % 2 == 0)
+			result -= pow(x-1,steps)/steps;
+		else
+			result += pow(x-1,steps)/steps;
+	return result;
+}
+
+double State::pow(double x, int y) {
+	double result = x;
+	if (y == 0)
+		return 1;
+	for(int i = 0;i<y;i++)
+		result *= x;
+	return result;
+}
+
 //resets all non-water squares to land and clears the bots ant vector
 void State::reset()
 {
@@ -97,6 +127,8 @@ void State::moveAnt(Ant &a)
 	bug << "moving ant at " << a.loc << " " << CDIRECTIONS[direction] << " " << a.roleText() << endl;
 
 	cout << "o " << loc.row << " " << loc.col << " " << CDIRECTIONS[direction] << endl;
+
+	a.countRetreating();
 
     Location nLoc = getLocation(loc, direction);
     grid[nLoc.row][nLoc.col].ant = grid[loc.row][loc.col].ant;
@@ -179,16 +211,10 @@ bool State::isOnMyHill(const Location &current) {
 }
 
 bool State::passableNextTurn(const Location &loc) {
-	bug << "using passableNextTurn " << loc << " : ";
-	if (grid[loc.row][loc.col].isWater) {
-		bug << "false" << endl;
+	if (grid[loc.row][loc.col].isWater)
 		return false;
-	}
-	if (gridNextTurn[loc.row][loc.col].ant>0) {
-		bug << "false" << endl;
+	if (gridNextTurn[loc.row][loc.col].ant>0)
 		return false;
-	}
-	bug << "true" << endl;
 	return true;
 };
 
@@ -1118,6 +1144,8 @@ void State::retreatAntFromNearestEnemy(Ant &ant) {
 
 	if (retreat == ant.loc)
 		return;
+
+	ant.retreatCount += 2;
 	
 	ant.queue.push_front(ant.loc);
 
