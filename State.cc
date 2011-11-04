@@ -1188,7 +1188,7 @@ Location State::retreatLocation(Ant &ant, Location nearest) {
 
 
 int State::calcExploreDistance(int modifier, int divisor) {
-	int t = (cols*rows/noPlayers)/divisor;
+	int t = (cols*rows/(noPlayers*noPlayers))/divisor;
 
 	return t + modifier;
 }

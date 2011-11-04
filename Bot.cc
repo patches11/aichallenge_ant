@@ -16,8 +16,8 @@ using namespace std;
 #define hillBuffer 2
 #define defendTurns 1
 #define minAntsFoodingToKillPercent 0.30
-#define exploreDistanceDivisor 300
-#define minExploreDistanceDivisor 1000
+#define exploreDistanceDivisor 50
+#define minExploreDistanceDivisor 200
 #define maxTurnsToRetreat 6
 
 //constructor
