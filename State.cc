@@ -5,7 +5,7 @@ using namespace std;
 #define attackDistanceBuffer 8
 #define searchStepLimit 550
 #define minExploreDistanceFromHill 2
-#define expLamda 0.5
+#define expLamda 0.55
 
 //constructor
 State::State()

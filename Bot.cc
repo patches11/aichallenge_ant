@@ -17,7 +17,7 @@ using namespace std;
 #define defendTurns 1
 #define minAntsFoodingToKillPercent 0.30
 #define exploreDistanceDivisor 50
-#define minExploreDistanceDivisor 200
+#define minExploreDistanceDivisor 300
 #define maxTurnsToRetreat 8
 
 #define minAntsToGoUnexplored 100
@@ -170,7 +170,7 @@ void Bot::makeMoves()
 
 	state.bug << "exploring with remaining ants" << endl;
 	time1 = state.timer.getTime();
-	state.goExplore(idleAnts, state.getMinExploreDistance(), state.getExploreDistance());
+	state.goExplore(idleAnts, state.getMinExploreDistance(),min<int>(state.myAnts.size(), state.getExploreDistance()));
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))
