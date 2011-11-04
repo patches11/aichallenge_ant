@@ -53,6 +53,8 @@ struct Ant
 		if (retreatCount > 0) {
 			retreatCount--;
 			turnsRetreating++;
+		} else {
+			turnsRetreating = 0;
 		}
 	}
 

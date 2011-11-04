@@ -18,7 +18,7 @@ using namespace std;
 #define minAntsFoodingToKillPercent 0.30
 #define exploreDistanceDivisor 50
 #define minExploreDistanceDivisor 200
-#define maxTurnsToRetreat 6
+#define maxTurnsToRetreat 8
 
 //constructor
 Bot::Bot()
