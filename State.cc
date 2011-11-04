@@ -14,6 +14,7 @@ State::State()
     turn = 0;
     bug.open("./debug.txt");
 	hillsAtRisk = false;
+	hasUnexplored = true;
 };
 
 //deconstructor
@@ -39,6 +40,19 @@ Location State::randomLocation(Location origin, int min, int distance) {
 	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
 		return loc;
 	return randomLocation(origin, min, distance);
+}
+
+Location State::randomLocation() {
+	vector<Location> unexplored;
+	for (int row = 0;row<rows;row++)
+		for(int col = 0;col<cols;col++)
+			if (!grid[row][col].isExplored)
+				unexplored.push_back(Location(row,col));
+	if (unexplored.empty()) {
+		hasUnexplored = false;
+		return Location(-1,-1);
+	}
+	return unexplored.at(rand() % unexplored.size());
 }
 
 Location State::randomLocationExp(Location origin, int min, int distance) {
@@ -859,21 +873,21 @@ void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int antsPerHi
 	}
 }
 
-void State::explore(Ant &ant, int mExpDis, int maxExpDis) {
+void State::explore(Ant &ant, int mExpDis, int maxExpDis, bool closePoint) {
 	//Testing out using an exponential distribution for exploring
-	Location exploreDest = randomLocationExp(ant.loc, mExpDis, maxExpDis);
+	Location exploreDest;
+
+	if (closePoint)
+		exploreDest = randomLocationExp(ant.loc, mExpDis, maxExpDis);
+	else
+		exploreDest = randomLocation();
+
+	if (exploreDest.row == -1 && exploreDest.col == -1)
+		return;
 
 	bug << "exploring from " << ant.loc << " to " << exploreDest  << endl;
 
 	list<Location> path = bfs(ant.loc, exploreDest);
-
-	#ifdef DEBUG
-		list<Location>::iterator it;
-		bug << "explore path: ";
-		for ( it=path.begin() ; it != path.end(); it++ )
-			bug << *it << " ";
-		bug << endl;
-	#endif
 
 	if (! path.empty())
 	{
@@ -892,7 +906,22 @@ void State::goExplore(vector<Ant*> &ants, int mExpDis, int maxExpDis)
 
 		ants.pop_back();
 
-		explore(*a, mExpDis, maxExpDis);
+		explore(*a, mExpDis, maxExpDis, true);
+	}
+}
+
+void State::goExploreUnexplored(vector<Ant*> &ants, int antsToTake)
+{
+	if (!hasUnexplored)
+		return;
+	//explore with additional ants if we have any
+	for(int i = 0;i<antsToTake && !ants.empty();i++)
+	{
+		Ant *a = ants.back();
+
+		ants.pop_back();
+
+		explore(*a, 0, 0, false);
 	}
 }
 
@@ -1069,6 +1098,7 @@ vector<Ant> State::myAntsWhoWillAntDie() {
 	return antsWhoWillDie;
 }
 
+// Need will die next turn which will use grid next turn in nearbyAnts next turn
 bool State::willAntDie(Location loc) {
 	vector<Ant> enemies = nearbyAnts(loc, 0);
 	int weakness = enemies.size();

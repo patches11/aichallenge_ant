@@ -20,6 +20,9 @@ using namespace std;
 #define minExploreDistanceDivisor 200
 #define maxTurnsToRetreat 8
 
+#define minAntsToGoUnexplored 100
+#define antsToGoToUnexplored 3
+
 //constructor
 Bot::Bot()
 {
@@ -150,6 +153,13 @@ void Bot::makeMoves()
 	if (state.outOfTime(timeWindowMs))
 		return;
 
+	if (state.myAnts.size() > minAntsToGoUnexplored) {
+		state.bug << "exploring unexplored areas" << endl;
+		time1 = state.timer.getTime();
+		state.goExploreUnexplored(idleAnts, antsToGoToUnexplored);
+		state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
+	}
+
 	state.bug << "getting food with idle ants" << endl;
 	time1 = state.timer.getTime();
     state.getFoods(idleAnts, idleFoods, maxFoodDistance);
@@ -179,7 +189,7 @@ void Bot::makeMoves()
 			state.rerouteAnt(state.myAnts[i]);
 		}
 		if (state.myAnts[i].idle() && state.isOnMyHill(state.myAnts[i].loc)) {
-			state.explore(state.myAnts[i], 4, 6);
+			state.explore(state.myAnts[i], 4, 6, true);
 		}
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);

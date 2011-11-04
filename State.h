@@ -40,7 +40,7 @@ struct State
     double attackradius, spawnradius, viewradius, attackradius2, viewradius2;
     double loadtime, turntime;
     std::vector<double> scores;
-    bool gameover, hillsAtRisk;
+    bool gameover, hillsAtRisk, hasUnexplored;
     int64_t seed;
 
     std::vector<std::vector<Square> > grid;
@@ -130,6 +130,8 @@ struct State
 
 	bool xAwayFromMyHills(Ant &ant, double buffer);
 
+	Location randomLocation();
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);
@@ -140,9 +142,11 @@ struct State
 
 	void killHills(std::vector<Ant*> &ants, std::vector<Location> &hills, int maxDistance);
 
-	void explore(Ant &ant, int mExpDis, int maxExpDis);
+	void explore(Ant &ant, int mExpDis, int maxExpDis, bool closePoint);
 
 	void goExplore(std::vector<Ant*> &ants, int mExpDis, int maxExpDis);
+
+	void goExploreUnexplored(std::vector<Ant*> &ants, int antsToTake);
 
 	void rerouteAnt(Ant &ant);
 
