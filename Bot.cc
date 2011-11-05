@@ -14,7 +14,7 @@ using namespace std;
 #define timeWindowMs 100
 #define defendAntsPerTurn 2
 #define hillBuffer 2
-#define defendTurns 1
+#define defendTurns 4
 #define minAntsFoodingToKillPercent 0.30
 #define exploreDistanceDivisor 50
 #define minExploreDistanceDivisor 300
@@ -102,8 +102,9 @@ void Bot::makeMoves()
 				exploringOrFoodingAnts.push_back(&state.myAnts[i]);
 		} else {
 			if (state.myAnts[i].isDefending() && state.myAnts[i].defendCounter < defendTurns) {
-				state.myAnts[i].defendCounter++;
-			} else if (state.myAnts[i].wasInterrupted()) {
+			//	state.myAnts[i].defendCounter++;
+			} else 
+			if (state.myAnts[i].wasInterrupted()) {
 				list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].rDestination);
 
 				state.myAnts[i].role = state.myAnts[i].intRole;
@@ -170,7 +171,7 @@ void Bot::makeMoves()
 
 	state.bug << "exploring with remaining ants" << endl;
 	time1 = state.timer.getTime();
-	state.goExplore(idleAnts, state.getMinExploreDistance(),min<int>(state.myAnts.size(), state.getExploreDistance()));
+	state.goExplore(idleAnts, state.getMinExploreDistance(),state.getExploreDistance());
 	state.bug << "time taken: " << state.timer.getTime() - time1 << "ms" << endl << endl;
 
 	if (state.outOfTime(timeWindowMs))
@@ -197,6 +198,7 @@ void Bot::makeMoves()
 		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && state.myAnts[i].turnsRetreating < maxTurnsToRetreat && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle()) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
 			state.retreatAntFromNearestEnemy(state.myAnts[i]);
 		}
+		// Maybe just idle ants who have been retreating for too many turns, rather than have them go ahead
 		for (int j = i+1;j<(int)state.myAnts.size();j++)
 			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {
 				if (state.myAnts[j].idle()) {
