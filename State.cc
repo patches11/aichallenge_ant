@@ -2,12 +2,13 @@
 
 using namespace std;
 
-#define attackDistanceBuffer 8
+#define attackDistanceBuffer 12
 #define searchStepLimit 550
 #define minExploreDistanceFromHill 2
 #define expLamda 0.55
 #define useSquareOfPlayers true
 #define useExponentialExploring true
+#define turnsTillNotAtRisk 3
 
 //constructor
 State::State()
@@ -16,6 +17,7 @@ State::State()
     turn = 0;
     bug.open("./debug.txt");
 	hillsAtRisk = false;
+	notAtRiskCountdown = 0;
 	hasUnexplored = true;
 };
 
@@ -125,7 +127,10 @@ void State::reset()
 	for(int i = 0;i<(int)myAnts.size();i++) {
 		antsMap[myAnts[i].loc] = myAnts[i];
 	}
-	hillsAtRisk = false;
+	if (notAtRiskCountdown > 0)
+		notAtRiskCountdown--;
+	else
+		hillsAtRisk = false;
     myAnts.clear();
     enemyAnts.clear();
     myHills.clear();
@@ -963,85 +968,165 @@ bool State::xAwayFromMyHills(Ant &ant, double buffer) {
 	return true;
 }
 
+vector<Location> State::closestEnemies(Location loc, double buffer) {
+	vector<Location> neighbors;
+	map<Location, bool> closedSet;
+	vector<Location> closeAnts;
+
+	neighbors.push_back(loc);
+
+	while(!neighbors.empty())
+	{
+		Location current = neighbors.back();
+		neighbors.pop_back();
+
+		closedSet[current] = true;
+
+		vector<Location> validNeighborsV = validNeighbors(current);
+
+		for(int j = 0;j < (int)validNeighborsV.size();j++) {
+			if (closedSet.count(validNeighborsV[j])>0)
+				continue;
+			if (distanceSq(validNeighborsV[j],loc) < viewradius2 + buffer) {
+				neighbors.push_back(validNeighborsV[j]);
+				if (grid[validNeighborsV[j].row][validNeighborsV[j].col].ant > 0) {
+					closeAnts.push_back(validNeighborsV[j]);
+				}
+			}
+		}
+	}
+	neighbors.clear();
+	closedSet.clear();
+
+	return closeAnts;
+}
+
+//Timeout here somewhere
 void State::defendHill(int antsPerTurn, double buffer) {
 
 	vector<int> exclude;
 	vector<Location> closeAnts;
-	vector<Location> neighbors;
-	map<Location, bool> closedSet;
+
 
 	for(int i = 0;i<(int)myHills.size();i++) {
 		bool atRisk = false;
+		Location closestAnt;
+		bool hasClosest = false;
 
-		neighbors.push_back(myHills[i]);
+		closeAnts = closestEnemies(myHills[i], buffer);
 
-		while(!neighbors.empty())
-		{
-			Location current = neighbors.back();
-			neighbors.pop_back();
-
-			closedSet[current] = true;
-
-			vector<Location> validNeighborsV = validNeighbors(current);
-
-			for(int j = 0;j < (int)validNeighborsV.size();j++) {
-				if (closedSet.count(validNeighborsV[j])>0)
-					continue;
-				if (distanceSq(validNeighborsV[j],myHills[i]) < viewradius2 + buffer) {
-					neighbors.push_back(validNeighborsV[j]);
-					if (grid[validNeighborsV[j].row][validNeighborsV[j].col].ant > 0) {
-						atRisk = true;
-						closeAnts.push_back(validNeighborsV[j]);
-					}
-				}
+		for(int j = 0;j<(int)closeAnts.size();j++)
+			if (!hasClosest || distanceSq(closeAnts[j],myHills[i]) < distanceSq(closestAnt,myHills[i])) {
+				hasClosest = true;
+				closestAnt = closeAnts[j];
 			}
-		}
-		neighbors.clear();
-		closedSet.clear();
+
+		atRisk = !closeAnts.empty();
 
 		if (atRisk) {
+			notAtRiskCountdown = turnsTillNotAtRisk;
 			hillsAtRisk = true;
 			bug << "hill " << myHills[i] << " at risk" << endl;
-			for(int antsTaken = 0;antsTaken < antsPerTurn && antsTaken < (int)closeAnts.size();antsTaken++) {
 
-				if (exclude.size() == myAnts.size())
-					break;
-			
-				//TODO fix this not perfect
-				int index = 0;
-				for(int j = 0;j<(int)myAnts.size();j++) {
-					bool cont = false;
-					for(int w = 0;w<(int)exclude.size();w++)
-						if (exclude[w] == j)
-							cont = true;
-					if (cont)
-						continue;
-					if (distanceSq(myAnts[j].loc,myHills[i]) < distanceSq(myAnts[index].loc,myHills[i]) && !myAnts[j].isDefending())
-						index = j;
+			list<Ant*> defendingAnts;
+			vector<Ant*> myCloseAnts;
+
+			for(int j = 0;j<(int)myAnts.size();j++) {
+				if (myAnts[j].isDefending() ) {
+					if (distanceSq(myAnts[j].loc,myHills[i]) < viewradius2)
+						defendingAnts.push_back(&myAnts[j]);
+				} else {
+					if ((int)myCloseAnts.size() < antsPerTurn && myCloseAnts.size() < (int)closeAnts.size())
+						myCloseAnts.push_back(&myAnts[j]);
+					else {
+						int minIndex = 0;
+						for(int k = 1;k<(int)myCloseAnts.size();k++)
+							if (distanceSq((*myCloseAnts[k]).loc,myHills[i]) > distanceSq((*myCloseAnts[minIndex]).loc,myHills[i]))
+								minIndex = k;
+						if (distanceSq(myAnts[j].loc,myHills[i]) < distanceSq((*myCloseAnts[minIndex]).loc,myHills[i]))
+							myCloseAnts[minIndex] = &myAnts[j];
+					}
+						
 				}
+			}
 
-				exclude.push_back(index);
+			vector<Location> hLocs = validNeighbors(myHills[i]);
 
-				vector<Location> hLocs = validNeighbors(myHills[i]);
+			if (!hLocs.empty())
+			{
+				Location hLoc = hLocs[0];
 
-				if (!hLocs.empty())
-				{
-					Location hLoc = hLocs[rand() % hLocs.size()];
+				for (int k = 1;k<(int)hLocs.size();k++)
+					if (distanceSq(hLocs[k],closestAnt) < distanceSq(hLoc,closestAnt))
+						hLoc = hLocs[k];
 
-					list<Location> path = bfs(myAnts[index].loc, hLoc);
+				bool horizontal = false;
 
-					bug << "sending ant at " << myAnts[index].loc << endl;
+				if (hLoc.row - myHills[i].row != 0)
+					horizontal = true;
+
+				vector<Location> positions;
+
+				//const char CDIRECTIONS[4] = {'N', 'E', 'S', 'W'};
+				if (horizontal) {
+					positions.push_back(hLoc);
+					positions.push_back(getLocation(hLoc,1));//E
+					positions.push_back(getLocation(hLoc,3));//W
+				} else {
+					positions.push_back(hLoc);
+					positions.push_back(getLocation(hLoc,0));//N
+					positions.push_back(getLocation(hLoc,2));//S
+				}
+			
+				//Organize already defending ants that are now close to this hill
+				// TODO
+				bug << "organizing defending ants" << endl;
+				bug << "sorting through defending ants" << endl;
+				for (int l = 0;l<(int)positions.size() && !positions.empty();l++)
+					for (list<Ant*>::iterator it1 = defendingAnts.begin(); it1 != defendingAnts.end() && !positions.empty(); it1++)
+							if ((**it1).loc == positions.back()) {
+								positions.pop_back();
+								it1 = defendingAnts.erase(it1);
+							}
+
+				bug << "sending ants to positions" << endl;
+				while (!positions.empty() && !defendingAnts.empty()) {
+					Location current = positions.back();
+					positions.pop_back();
+
+					list<Location> path = bfs((*defendingAnts.back()).loc, current);
+
+					bug << "sending ant at " << (*defendingAnts.back()).loc << endl;
 
 					if (! path.empty())
 					{
 						path.pop_front();
-						if (!myAnts[index].idle()) {
-							myAnts[index].rDestination = myAnts[index].destination();
-							myAnts[index].intRole = myAnts[index].role;
-						}
-						myAnts[index].setDefend();
-						setAntQueue(myAnts[index], path, hLoc);
+						
+						setAntQueue((*defendingAnts.back()), path, current);
 					}
+
+					defendingAnts.pop_back();
+				}
+
+				// Send new ants to defend
+				bug << "sending new ants to defend" << endl;
+				for(int j = 0;j<(int)myCloseAnts.size();j++) {
+
+					list<Location> path = bfs((*myCloseAnts[j]).loc, hLoc);
+
+					bug << "sending ant at " << (*myCloseAnts[j]).loc << endl;
+
+					if (! path.empty())
+					{
+						path.pop_front();
+						if (!(*myCloseAnts[j]).idle()) {
+							(*myCloseAnts[j]).rDestination = (*myCloseAnts[j]).destination();
+							(*myCloseAnts[j]).intRole = (*myCloseAnts[j]).role;
+						}
+						(*myCloseAnts[j]).setDefend();
+						setAntQueue((*myCloseAnts[j]), path, hLoc);
+					}
+					
 				}
 			}
 		}

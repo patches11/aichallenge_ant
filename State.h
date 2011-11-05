@@ -36,7 +36,7 @@ struct State
     */
     int rows, cols,
         turn, turns,
-        noPlayers, exploreDistance, minExploreDistance;
+        noPlayers, exploreDistance, minExploreDistance, notAtRiskCountdown;
     double attackradius, spawnradius, viewradius, attackradius2, viewradius2;
     double loadtime, turntime;
     std::vector<double> scores;
@@ -133,6 +133,8 @@ struct State
 	bool xAwayFromMyHills(Ant &ant, double buffer);
 
 	Location randomLocation();
+
+	std::vector<Location> closestEnemies(Location loc, double buffer);
 
 	// Action functions
 

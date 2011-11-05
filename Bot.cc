@@ -185,6 +185,7 @@ void Bot::makeMoves()
 	time1 = state.timer.getTime();
 	//TODO - retreat if ant will lose a battle
 	//Todo - We still have collisions, fix this code
+	// Collisions especially when retreating & when defending
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
 		if (state.outOfTime(timeWindowMs))
 			return;
