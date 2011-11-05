@@ -23,6 +23,8 @@ using namespace std;
 #define minAntsToGoUnexplored 100
 #define antsToGoToUnexplored 3
 
+#define useDefendCounter false
+
 //constructor
 Bot::Bot()
 {
@@ -102,7 +104,8 @@ void Bot::makeMoves()
 				exploringOrFoodingAnts.push_back(&state.myAnts[i]);
 		} else {
 			if (state.myAnts[i].isDefending() && state.myAnts[i].defendCounter < defendTurns) {
-			//	state.myAnts[i].defendCounter++;
+				if (useDefendCounter)
+					state.myAnts[i].defendCounter++;
 			} else 
 			if (state.myAnts[i].wasInterrupted()) {
 				list<Location> path = state.bfs(state.myAnts[i].loc, state.myAnts[i].rDestination);

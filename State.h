@@ -128,6 +128,8 @@ struct State
 
 	Location randomLocationExp(Location origin, int min, int distance);
 
+	Location randomLocationUni(Location origin, int min, int distance);
+
 	bool xAwayFromMyHills(Ant &ant, double buffer);
 
 	Location randomLocation();

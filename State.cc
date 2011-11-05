@@ -6,6 +6,8 @@ using namespace std;
 #define searchStepLimit 550
 #define minExploreDistanceFromHill 2
 #define expLamda 0.55
+#define useSquareOfPlayers true
+#define useExponentialExploring true
 
 //constructor
 State::State()
@@ -35,11 +37,26 @@ bool State::outOfTime(double marginOfError) {
 }
 
 Location State::randomLocation(Location origin, int min, int distance) {
+	if (useExponentialExploring)
+		return randomLocationExp(origin, min, distance);
+	else
+		return randomLocationUni(origin, min, distance);
+}
+
+Location State::randomLocationUni(Location origin, int min, int distance) {
 	Location loc = Location((origin.row + randomWithNeg(min, distance) + rows) % rows,
 							(origin.col + randomWithNeg(min, distance) + cols) % cols);
 	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
 		return loc;
-	return randomLocation(origin, min, distance);
+	return randomLocationUni(origin, min, distance);
+}
+
+Location State::randomLocationExp(Location origin, int min, int distance) {
+	Location loc = Location((origin.row + randomWithNegExp(min, distance) + rows) % rows,
+							(origin.col + randomWithNegExp(min, distance) + cols) % cols);
+	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
+		return loc;
+	return randomLocationExp(origin, min, distance);
 }
 
 Location State::randomLocation() {
@@ -55,13 +72,7 @@ Location State::randomLocation() {
 	return unexplored.at(rand() % unexplored.size());
 }
 
-Location State::randomLocationExp(Location origin, int min, int distance) {
-	Location loc = Location((origin.row + randomWithNegExp(min, distance) + rows) % rows,
-							(origin.col + randomWithNegExp(min, distance) + cols) % cols);
-	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
-		return loc;
-	return randomLocationExp(origin, min, distance);
-}
+
 
 bool State::xAwayFromMyHill(int dis, Location current) {
 	for(int i = 0;i<(int)myHills.size();i++)
@@ -874,11 +885,10 @@ void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int antsPerHi
 }
 
 void State::explore(Ant &ant, int mExpDis, int maxExpDis, bool closePoint) {
-	//Testing out using an exponential distribution for exploring
 	Location exploreDest;
 
 	if (closePoint)
-		exploreDest = randomLocationExp(ant.loc, mExpDis, maxExpDis);
+		exploreDest = randomLocation(ant.loc, mExpDis, maxExpDis);
 	else
 		exploreDest = randomLocation();
 
@@ -1218,7 +1228,12 @@ Location State::retreatLocation(Ant &ant, Location nearest) {
 
 
 int State::calcExploreDistance(int modifier, int divisor) {
-	int t = (cols*rows/(noPlayers*noPlayers))/divisor;
+	int t;
+	
+	if (useSquareOfPlayers)
+		t = (cols*rows/(noPlayers*noPlayers))/divisor;
+	else 
+		t = (cols*rows/(noPlayers))/divisor;
 
 	return t + modifier;
 }
