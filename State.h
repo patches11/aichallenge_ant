@@ -136,6 +136,8 @@ struct State
 
 	std::vector<Location> closestEnemies(Location loc, double buffer);
 
+	void setAntQueue(Ant &a, Location destination);
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);

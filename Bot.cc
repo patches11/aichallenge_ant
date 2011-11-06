@@ -3,7 +3,6 @@
 using namespace std;
 
 // Add max distance to kill hill?
-// Use a non - uniform distribution for explore?
 
 #define exploreDistanceModifier 3
 #define minExploreDistanceModifier 1
@@ -24,6 +23,7 @@ using namespace std;
 #define antsToGoToUnexplored 3
 
 #define useDefendCounter false
+#define exploreUnexplored true
 
 //constructor
 Bot::Bot()
@@ -157,7 +157,7 @@ void Bot::makeMoves()
 	if (state.outOfTime(timeWindowMs))
 		return;
 
-	if (state.myAnts.size() > minAntsToGoUnexplored) {
+	if (exploreUnexplored && state.myAnts.size() > minAntsToGoUnexplored) {
 		state.bug << "exploring unexplored areas" << endl;
 		time1 = state.timer.getTime();
 		state.goExploreUnexplored(idleAnts, antsToGoToUnexplored);

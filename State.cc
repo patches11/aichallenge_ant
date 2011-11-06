@@ -9,6 +9,7 @@ using namespace std;
 #define useSquareOfPlayers true
 #define useExponentialExploring true
 #define turnsTillNotAtRisk 3
+#define maxDefendingAnts 10
 
 //constructor
 State::State()
@@ -490,6 +491,17 @@ istream& operator>>(istream &is, State &state)
 void State::setAntQueue(Ant &a, list<Location> q, Location destination) {
 	Location oLoc = a.positionNextTurn();
 	a.queue = q;
+	a.iDestination = destination;
+	Location nLoc = a.positionNextTurn();
+	
+	gridNextTurn[nLoc.row][nLoc.col].ant++;
+    gridNextTurn[oLoc.row][oLoc.col].ant--;
+}
+
+void State::setAntQueue(Ant &a, Location destination) {
+	Location oLoc = a.positionNextTurn();
+	a.queue.clear();
+	a.queue.push_back(destination);
 	a.iDestination = destination;
 	Location nLoc = a.positionNextTurn();
 	
@@ -1001,7 +1013,6 @@ vector<Location> State::closestEnemies(Location loc, double buffer) {
 	return closeAnts;
 }
 
-//Timeout here somewhere
 void State::defendHill(int antsPerTurn, double buffer) {
 
 	vector<int> exclude;
@@ -1050,15 +1061,23 @@ void State::defendHill(int antsPerTurn, double buffer) {
 				}
 			}
 
+			// If we have more than maxDefendingAnts defending this hill than go on to the next hill
+			if (defendingAnts.size() >= maxDefendingAnts)
+				continue;
+
 			vector<Location> hLocs = validNeighbors(myHills[i]);
 
 			if (!hLocs.empty())
 			{
 				Location hLoc = hLocs[0];
+				Location mLoc = hLocs[0];
 
-				for (int k = 1;k<(int)hLocs.size();k++)
+				for (int k = 1;k<(int)hLocs.size();k++) {
 					if (distanceSq(hLocs[k],closestAnt) < distanceSq(hLoc,closestAnt))
 						hLoc = hLocs[k];
+					if (distanceSq(hLocs[k],closestAnt) > distanceSq(mLoc,closestAnt))
+						mLoc = hLocs[k];
+				}
 
 				bool horizontal = false;
 
@@ -1077,17 +1096,30 @@ void State::defendHill(int antsPerTurn, double buffer) {
 					positions.push_back(getLocation(hLoc,0));//N
 					positions.push_back(getLocation(hLoc,2));//S
 				}
+
+				list<Ant*> inPositionAnts;
 			
 				//Organize already defending ants that are now close to this hill
 				// TODO
 				bug << "organizing defending ants" << endl;
 				bug << "sorting through defending ants" << endl;
 				for (int l = 0;l<(int)positions.size() && !positions.empty();l++)
-					for (list<Ant*>::iterator it1 = defendingAnts.begin(); it1 != defendingAnts.end() && !positions.empty(); it1++)
+					for (list<Ant*>::iterator it1 = defendingAnts.begin(); it1 != defendingAnts.end() && !positions.empty(); it1++) {
 							if ((**it1).loc == positions.back()) {
+								positions.pop_back();
+								inPositionAnts.push_back(*it1);
+								it1 = defendingAnts.erase(it1);
+							} else if ((**it1).destination() == positions.back()) {
 								positions.pop_back();
 								it1 = defendingAnts.erase(it1);
 							}
+					}
+
+				//All ants in position, move towards enemies
+				if (positions.empty()) {
+					for (list<Ant*>::iterator it1 = inPositionAnts.begin(); it1 != inPositionAnts.end(); it1++)
+						setAntQueue(**it1, getLocation((**it1).loc, directionFromPoints(myHills[i],hLoc) ));
+				}
 
 				bug << "sending ants to positions" << endl;
 				while (!positions.empty() && !defendingAnts.empty()) {
@@ -1112,7 +1144,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 				bug << "sending new ants to defend" << endl;
 				for(int j = 0;j<(int)myCloseAnts.size();j++) {
 
-					list<Location> path = bfs((*myCloseAnts[j]).loc, hLoc);
+					list<Location> path = bfs((*myCloseAnts[j]).loc, mLoc);
 
 					bug << "sending ant at " << (*myCloseAnts[j]).loc << endl;
 
@@ -1124,7 +1156,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 							(*myCloseAnts[j]).intRole = (*myCloseAnts[j]).role;
 						}
 						(*myCloseAnts[j]).setDefend();
-						setAntQueue((*myCloseAnts[j]), path, hLoc);
+						setAntQueue((*myCloseAnts[j]), path, mLoc);
 					}
 					
 				}
@@ -1215,6 +1247,7 @@ bool State::willAntDie(Location loc) {
 	return false;
 }
 
+//We should use positionNextTurn or girdNextTurn when using this for ants which aren't mine
 vector<Ant> State::nearbyAnts(Location loc, int owner) {
 	vector<Location> neighbors;
 	vector<Ant> close;
@@ -1273,6 +1306,8 @@ Location State::nearestEnemy(Ant &ant) {
 	return ant.loc;
 }
 
+
+//TODO: needs to update gridNextTurn
 void State::retreatAntFromNearestEnemy(Ant &ant) {
 	Location nearest = nearestEnemy(ant);
 
@@ -1281,6 +1316,8 @@ void State::retreatAntFromNearestEnemy(Ant &ant) {
 	// No enemy within sight of this ant
 	if (nearest == ant.loc)
 		return;
+
+	Location oLoc = ant.positionNextTurn();
 
 	Location retreat = retreatLocation(ant, nearest);
 
@@ -1292,6 +1329,12 @@ void State::retreatAntFromNearestEnemy(Ant &ant) {
 	ant.queue.push_front(ant.loc);
 
 	ant.queue.push_front(retreat);
+
+	Location nLoc = ant.positionNextTurn();
+	
+	gridNextTurn[nLoc.row][nLoc.col].ant++;
+    gridNextTurn[oLoc.row][oLoc.col].ant--;
+
 }
 
 //const int DIRECTIONS[4][2] = { {-1, 0}, {0, 1}, {1, 0}, {0, -1} };      //{N, E, S, W}
