@@ -17,6 +17,7 @@ struct Ant
     Location loc;
 	Location rDestination;//Interrupted Destination, if Ant is sent to get close food
 	Location iDestination;//Real destination, may not match queue.back() because of interrupted pathfinding
+	Location hillDefending;
 	int intRole, role, owner, defendCounter;
 	int turnsRetreating, retreatCount;
 
@@ -85,8 +86,9 @@ struct Ant
 		return (intRole != -1);
 	}
 
-	void setDefend() {
+	void setDefend(Location loc) {
 		role = 3;
+		hillDefending = loc;
 		defendCounter = 0;
 	}
 

@@ -2,25 +2,12 @@
 
 using namespace std;
 
-#define attackDistanceBuffer 8
-#define searchStepLimit 550
-#define minExploreDistanceFromHill 2
-#define expLamda 0.55
-#define turnsTillNotAtRisk 3
-#define maxDefendingAnts 10
-
-#define useSquareOfPlayers true
-#define useExponentialExploring true
-
-
 //constructor
 State::State()
 {
     gameover = 0;
     turn = 0;
     bug.open("./debug.txt");
-	hillsAtRisk = false;
-	notAtRiskCountdown = 0;
 	hasUnexplored = true;
 };
 
@@ -29,6 +16,39 @@ State::~State()
 {
     bug.close();
 };
+
+void State::setAttackDistanceBuffer(int b) {
+	attackDistanceBuffer = b;
+}
+
+void State::setSearchStepLimit(int l) {
+	searchStepLimit = l;
+}
+
+void State::setMinExploreDistanceFromHill(int m) {
+	minExploreDistanceFromHill = m;
+}
+
+void State::setExpLamda(double l) {
+	expLamda = l;
+}
+
+void State::setTurnsTillNotAtRisk(int t) {
+	turnsTillNotAtRisk = t;
+}
+
+void State::setMaxDefendingAnts(int a) {
+	maxDefendingAnts = a;
+}
+
+void State::setUseSquareOfPlayers(bool p) {
+	useSquareOfPlayers = p;
+}
+
+void State::setUseExponentialExploring(bool e) {
+	useExponentialExploring = e;
+}
+
 
 //sets the state up
 void State::setup()
@@ -49,16 +69,26 @@ Location State::randomLocation(Location origin, int min, int distance) {
 }
 
 Location State::randomLocationUni(Location origin, int min, int distance) {
-	Location loc = Location((origin.row + randomWithNeg(min, distance) + rows) % rows,
-							(origin.col + randomWithNeg(min, distance) + cols) % cols);
+	int row = (origin.row + randomWithNeg(min, distance) + rows) % rows;
+	int col = (origin.col + randomWithNeg(min, distance) + cols) % cols;
+	if (row < 0)
+		row = -row;
+	if (col < 0)
+		col = -col;
+	Location loc = Location(row, col);
 	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
 		return loc;
 	return randomLocationUni(origin, min, distance);
 }
 
 Location State::randomLocationExp(Location origin, int min, int distance) {
-	Location loc = Location((origin.row + randomWithNegExp(min, distance) + rows) % rows,
-							(origin.col + randomWithNegExp(min, distance) + cols) % cols);
+	int row = (origin.row + randomWithNegExp(min, distance) + rows) % rows;
+	int col = (origin.col + randomWithNegExp(min, distance) + cols) % cols;
+	if (row < 0)
+		row = -row;
+	if (col < 0)
+		col = -col;
+	Location loc = Location(row, col);
 	if (passable(loc) && xAwayFromMyHill(minExploreDistanceFromHill,loc))
 		return loc;
 	return randomLocationExp(origin, min, distance);
@@ -130,10 +160,9 @@ void State::reset()
 	for(int i = 0;i<(int)myAnts.size();i++) {
 		antsMap[myAnts[i].loc] = myAnts[i];
 	}
-	if (notAtRiskCountdown > 0)
-		notAtRiskCountdown--;
-	else
-		hillsAtRisk = false;
+	for(int i = 0;i<(int)myHills.size();i++)
+		if (hillsAtRisk[myHills[i]] > 0)
+			hillsAtRisk[myHills[i]]--;
     myAnts.clear();
     enemyAnts.clear();
     myHills.clear();
@@ -1015,6 +1044,7 @@ vector<Location> State::closestEnemies(Location loc, double buffer) {
 	return closeAnts;
 }
 
+// On very small maps hills may never be considered not at risk and so ants won't be released
 void State::defendHill(int antsPerTurn, double buffer) {
 
 	vector<int> exclude;
@@ -1037,8 +1067,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 		atRisk = !closeAnts.empty();
 
 		if (atRisk) {
-			notAtRiskCountdown = turnsTillNotAtRisk;
-			hillsAtRisk = true;
+			hillsAtRisk[myHills[i]] = turnsTillNotAtRisk;
 			bug << "hill " << myHills[i] << " at risk" << endl;
 
 			list<Ant*> defendingAnts;
@@ -1158,7 +1187,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 							(*myCloseAnts[j]).rDestination = (*myCloseAnts[j]).destination();
 							(*myCloseAnts[j]).intRole = (*myCloseAnts[j]).role;
 						}
-						(*myCloseAnts[j]).setDefend();
+						(*myCloseAnts[j]).setDefend(myHills[i]);
 						setAntQueue((*myCloseAnts[j]), path, mLoc);
 					}
 					

@@ -4,32 +4,44 @@ using namespace std;
 
 // Add max distance to kill hill?
 
-#define exploreDistanceModifier 3
-#define minExploreDistanceModifier 1
-#define maxFoodDistance 30
-#define maxExploreFoodDistance 5
-#define maxExploreKillHillDistance 3
-#define maxAntsToKillHillPerTurn 10
-#define timeWindowMs 100
-#define defendAntsPerTurn 2
-#define hillBuffer 2
-#define defendTurns 4
-#define minAntsFoodingToKillPercent 0.30
-#define exploreDistanceDivisor 50
-#define minExploreDistanceDivisor 300
-#define maxTurnsToRetreat 10
-
-#define minAntsToGoUnexplored 100
-#define antsToGoToUnexplored 3
-
-#define useDefendCounter false
-#define exploreUnexplored true
-#define idleAntsForExcessiveRetreating true
-
 //constructor
 Bot::Bot()
 {
+	// Defaults
 
+	//int
+	exploreDistanceModifier = 3;
+	minExploreDistanceModifier = 1;
+	maxFoodDistance = 30;
+	maxExploreFoodDistance = 5;
+	maxExploreKillHillDistance = 3;
+	maxAntsToKillHillPerTurn = 10;
+	timeWindowMs = 100;
+	defendAntsPerTurn = 2;
+	hillBuffer = 2;
+	defendTurns = 4;
+	exploreDistanceDivisor = 50;
+	minExploreDistanceDivisor = 300;
+	maxTurnsToRetreat = 10;
+	attackDistanceBuffer = 8;
+	searchStepLimit = 550;
+	minExploreDistanceFromHill = 2;
+	turnsTillNotAtRisk = 3;
+	maxDefendingAnts = 10;
+	minAntsToGoUnexplored = 100;
+	antsToGoToUnexplored = 3;
+
+	//double
+	minAntsFoodingToKillPercent = 0.30;
+	expLamda = 0.55;
+
+	//bool
+	useDefendCounter = false;
+	exploreUnexplored = true;
+	idleAntsForExcessiveRetreating = true;
+	useRetreatForKillingAnts = true;
+	useSquareOfPlayers = true;
+	useExponentialExploring = true;
 };
 
 
@@ -39,9 +51,84 @@ void Bot::playGame(int argc, char *argv[])
     //reads the game parameters and sets up
     cin >> state;
     state.setup();
+
+	//read command line arguments
+	for(int i = 0; i < argc; i++) {
+		if (argv[i] == "--attackDistanceBuffer")
+			attackDistanceBuffer = atoi(argv[++i]);
+		else if (argv[i] == "--exploreDistanceModifier")
+			exploreDistanceModifier = atoi(argv[++i]);
+		else if (argv[i] == "--minExploreDistanceModifier")
+			minExploreDistanceModifier = atoi(argv[++i]);
+		else if (argv[i] == "--maxFoodDistance")
+			maxFoodDistance = atoi(argv[++i]);
+		else if (argv[i] == "--maxExploreFoodDistance")
+			maxExploreFoodDistance = atoi(argv[++i]);
+		else if (argv[i] == "--maxExploreKillHillDistance")
+			maxExploreKillHillDistance = atoi(argv[++i]);
+		else if (argv[i] == "--maxAntsToKillHillPerTurn")
+			maxAntsToKillHillPerTurn = atoi(argv[++i]);
+		else if (argv[i] == "--timeWindowMs")
+			timeWindowMs = atoi(argv[++i]);
+		else if (argv[i] == "--defendAntsPerTurn")
+			defendAntsPerTurn = atoi(argv[++i]);
+		else if (argv[i] == "--hillBuffer")
+			hillBuffer = atoi(argv[++i]);
+		else if (argv[i] == "--defendTurns")
+			defendTurns = atoi(argv[++i]);
+		else if (argv[i] == "--exploreDistanceDivisor")
+			exploreDistanceDivisor = atoi(argv[++i]);
+		else if (argv[i] == "--minExploreDistanceDivisor")
+			minExploreDistanceDivisor = atoi(argv[++i]);
+		else if (argv[i] == "--maxTurnsToRetreat")
+			maxTurnsToRetreat = atoi(argv[++i]);
+		else if (argv[i] == "--attackDistanceBuffer")
+			attackDistanceBuffer = atoi(argv[++i]);
+		else if (argv[i] == "--searchStepLimit")
+			searchStepLimit = atoi(argv[++i]);
+		else if (argv[i] == "--minExploreDistanceFromHill")
+			minExploreDistanceFromHill = atoi(argv[++i]);
+		else if (argv[i] == "--turnsTillNotAtRisk")
+			turnsTillNotAtRisk = atoi(argv[++i]);
+		else if (argv[i] == "--maxDefendingAnts")
+			maxDefendingAnts = atoi(argv[++i]);
+		else if (argv[i] == "--minAntsToGoUnexplored")
+			minAntsToGoUnexplored = atoi(argv[++i]);
+		else if (argv[i] == "--antsToGoToUnexplored")
+			antsToGoToUnexplored = atoi(argv[++i]);
+		else if (argv[i] == "--minAntsFoodingToKillPercent")
+			minAntsFoodingToKillPercent = atof(argv[++i]);
+		else if (argv[i] == "--expLamda")
+			expLamda = atof(argv[++i]);
+		else if (argv[i] == "--useDefendCounter")
+			useDefendCounter =argv[++i] == "true" ? true : false;
+		else if (argv[i] == "--exploreUnexplored")
+			exploreUnexplored =argv[++i] == "true" ? true : false;
+		else if (argv[i] == "--idleAntsForExcessiveRetreating")
+			idleAntsForExcessiveRetreating =argv[++i] == "true" ? true : false;
+		else if (argv[i] == "--useRetreatForKillingAnts")
+			useRetreatForKillingAnts =argv[++i] == "true" ? true : false;
+		else if (argv[i] == "--useSquareOfPlayers")
+			useSquareOfPlayers =argv[++i] == "true" ? true : false;
+		else if (argv[i] == "--useExponentialExploring")
+			useExponentialExploring =argv[++i] == "true" ? true : false;
+	}
+      
+
+	//State configuration
 	state.setExploreDistance(exploreDistanceModifier, exploreDistanceDivisor);
 	state.setMinExploreDistance(minExploreDistanceModifier, minExploreDistanceDivisor);
+	state.setAttackDistanceBuffer(attackDistanceBuffer);
+	state.setSearchStepLimit(searchStepLimit);
+	state.setMinExploreDistanceFromHill(minExploreDistanceFromHill);
+	state.setExpLamda(expLamda);
+	state.setTurnsTillNotAtRisk(turnsTillNotAtRisk);
+	state.setMaxDefendingAnts(maxDefendingAnts);
+	state.setUseSquareOfPlayers(useSquareOfPlayers);
+	state.setUseExponentialExploring(useExponentialExploring);
+
     endTurn();
+
 
     //continues making moves while the game is not over
     while(cin >> state)
@@ -75,7 +162,8 @@ void Bot::makeMoves()
 	killCount = defendCount = foodCount = exploreCount = 0;
 
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
-		if (state.myAnts[i].isDefending() && !state.hillsAtRisk) {
+		//Slow?
+		if (state.myAnts[i].isDefending() && !(state.hillsAtRisk[state.myAnts[i].hillDefending] > 0)) {
 			state.setAntIdle(state.myAnts[i]);
 		}
 		if (!state.myAnts[i].idle()) {
@@ -158,7 +246,7 @@ void Bot::makeMoves()
 	if (state.outOfTime(timeWindowMs))
 		return;
 
-	if (exploreUnexplored && state.myAnts.size() > minAntsToGoUnexplored) {
+	if (exploreUnexplored && (int)state.myAnts.size() > minAntsToGoUnexplored) {
 		state.bug << "exploring unexplored areas" << endl;
 		time1 = state.timer.getTime();
 		state.goExploreUnexplored(idleAnts, antsToGoToUnexplored);
@@ -200,7 +288,7 @@ void Bot::makeMoves()
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);
 		}
-		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle()) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
+		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle() || (useRetreatForKillingAnts && state.myAnts[i].isAttacking())) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
 			if (state.myAnts[i].turnsRetreating < maxTurnsToRetreat)
 				state.retreatAntFromNearestEnemy(state.myAnts[i]);
 			else if (idleAntsForExcessiveRetreating) {

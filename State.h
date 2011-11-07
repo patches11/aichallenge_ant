@@ -36,18 +36,23 @@ struct State
     */
     int rows, cols,
         turn, turns,
-        noPlayers, exploreDistance, minExploreDistance, notAtRiskCountdown;
+        noPlayers, exploreDistance, minExploreDistance;
     double attackradius, spawnradius, viewradius, attackradius2, viewradius2;
     double loadtime, turntime;
     std::vector<double> scores;
-    bool gameover, hillsAtRisk, hasUnexplored;
+    bool gameover, hasUnexplored;
     int64_t seed;
 
+	std::map<Location, int> hillsAtRisk;
     std::vector<std::vector<Square> > grid;
 	std::vector<std::vector<Square> > gridNextTurn;
     std::vector<Location> myHills, enemyHills, food;
 	std::vector<Ant> enemyAnts, myAnts;
     std::map<Location, Ant> antsMap;
+
+	int attackDistanceBuffer, searchStepLimit, minExploreDistanceFromHill, turnsTillNotAtRisk, maxDefendingAnts;
+	double expLamda;
+	bool useSquareOfPlayers, useExponentialExploring;
 
     Timer timer;
     Bug bug;
@@ -141,6 +146,22 @@ struct State
 	void setAntIdle(Ant &ant);
 
 	void clearAntQueue(Ant &ant);
+
+	void State::setAttackDistanceBuffer(int b);
+
+	void State::setSearchStepLimit(int l);
+
+	void State::setMinExploreDistanceFromHill(int m);
+
+	void State::setExpLamda(double l);
+
+	void State::setTurnsTillNotAtRisk(int t);
+
+	void State::setMaxDefendingAnts(int a);
+
+	void State::setUseSquareOfPlayers(bool p);
+
+	void State::setUseExponentialExploring(bool e);
 
 	// Action functions
 
