@@ -108,6 +108,7 @@ struct Ant
 
 	void setIdle() {
 		role = -1;
+		turnsRetreating = retreatCount = 0;
 		queue.clear();
 	}
 

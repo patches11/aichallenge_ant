@@ -17,13 +17,14 @@ using namespace std;
 #define minAntsFoodingToKillPercent 0.30
 #define exploreDistanceDivisor 50
 #define minExploreDistanceDivisor 300
-#define maxTurnsToRetreat 8
+#define maxTurnsToRetreat 10
 
 #define minAntsToGoUnexplored 100
 #define antsToGoToUnexplored 3
 
 #define useDefendCounter false
 #define exploreUnexplored true
+#define idleAntsForExcessiveRetreating true
 
 //constructor
 Bot::Bot()
@@ -75,15 +76,15 @@ void Bot::makeMoves()
 
 	for (int i = 0;i<(int)state.myAnts.size();i++) {
 		if (state.myAnts[i].isDefending() && !state.hillsAtRisk) {
-			state.myAnts[i].setIdle();
+			state.setAntIdle(state.myAnts[i]);
 		}
 		if (!state.myAnts[i].idle()) {
 			Location destination = state.myAnts[i].destination();
 			if (state.myAnts[i].isAttacking() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isHill) {
-				state.myAnts[i].setIdle();
+				state.setAntIdle(state.myAnts[i]);
 				idleAnts.push_back(&state.myAnts[i]);
 			}else if (state.myAnts[i].isGettingFood() && state.grid[destination.row][destination.col].isVisible && !state.grid[destination.row][destination.col].isFood) {
-				state.myAnts[i].setIdle();
+				state.setAntIdle(state.myAnts[i]);
 				idleAnts.push_back(&state.myAnts[i]);
 			} else if (state.passable(destination)) {
 				if (state.myAnts[i].isAttacking())
@@ -97,7 +98,7 @@ void Bot::makeMoves()
 				destinations.push_back(destination);
 			}
 			else {
-				state.myAnts[i].setIdle();
+				state.setAntIdle(state.myAnts[i]);
 				idleAnts.push_back(&state.myAnts[i]);
 			}
 			if (!state.myAnts[i].wasInterrupted() && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood()))
@@ -114,7 +115,7 @@ void Bot::makeMoves()
 				state.myAnts[i].intRole = -1;
 
 				if (path.empty()) {
-					state.myAnts[i].setIdle();
+					state.setAntIdle(state.myAnts[i]);
 					idleAnts.push_back(&state.myAnts[i]);
 				}
 				else {
@@ -199,10 +200,15 @@ void Bot::makeMoves()
 		if (!state.myAnts[i].idle() && !state.passable(state.myAnts[i].positionNextTurn())) {
 			state.rerouteAnt(state.myAnts[i]);
 		}
-		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && state.myAnts[i].turnsRetreating < maxTurnsToRetreat && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle()) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
-			state.retreatAntFromNearestEnemy(state.myAnts[i]);
+		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle()) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
+			if (state.myAnts[i].turnsRetreating < maxTurnsToRetreat)
+				state.retreatAntFromNearestEnemy(state.myAnts[i]);
+			else if (idleAntsForExcessiveRetreating) {
+				state.setAntIdle(state.myAnts[i]);
+				state.retreatAntFromNearestEnemy(state.myAnts[i]);
+			}
 		}
-		// Maybe just idle ants who have been retreating for too many turns, rather than have them go ahead
+		
 		for (int j = i+1;j<(int)state.myAnts.size();j++)
 			if (state.myAnts[i].positionNextTurn() ==  state.myAnts[j].positionNextTurn()) {
 				if (state.myAnts[j].idle()) {

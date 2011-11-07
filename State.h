@@ -138,6 +138,10 @@ struct State
 
 	void setAntQueue(Ant &a, Location destination);
 
+	void setAntIdle(Ant &ant);
+
+	void clearAntQueue(Ant &ant);
+
 	// Action functions
 
 	bool checkDestinations(std::vector<Location> destinations, Location destination);

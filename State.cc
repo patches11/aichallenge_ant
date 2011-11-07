@@ -2,14 +2,16 @@
 
 using namespace std;
 
-#define attackDistanceBuffer 12
+#define attackDistanceBuffer 8
 #define searchStepLimit 550
 #define minExploreDistanceFromHill 2
 #define expLamda 0.55
-#define useSquareOfPlayers true
-#define useExponentialExploring true
 #define turnsTillNotAtRisk 3
 #define maxDefendingAnts 10
+
+#define useSquareOfPlayers true
+#define useExponentialExploring true
+
 
 //constructor
 State::State()
@@ -1107,6 +1109,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 					for (list<Ant*>::iterator it1 = defendingAnts.begin(); it1 != defendingAnts.end() && !positions.empty(); it1++) {
 							if ((**it1).loc == positions.back()) {
 								positions.pop_back();
+								clearAntQueue(**it1);
 								inPositionAnts.push_back(*it1);
 								it1 = defendingAnts.erase(it1);
 							} else if ((**it1).destination() == positions.back()) {
@@ -1116,10 +1119,10 @@ void State::defendHill(int antsPerTurn, double buffer) {
 					}
 
 				//All ants in position, move towards enemies
-				if (positions.empty()) {
-					for (list<Ant*>::iterator it1 = inPositionAnts.begin(); it1 != inPositionAnts.end(); it1++)
-						setAntQueue(**it1, getLocation((**it1).loc, directionFromPoints(myHills[i],hLoc) ));
-				}
+				//if (positions.empty()) {
+				//	for (list<Ant*>::iterator it1 = inPositionAnts.begin(); it1 != inPositionAnts.end(); it1++)
+				//		setAntQueue(**it1, getLocation((**it1).loc, directionFromPoints(myHills[i],hLoc) ));
+				//}
 
 				bug << "sending ants to positions" << endl;
 				while (!positions.empty() && !defendingAnts.empty()) {
@@ -1382,4 +1385,26 @@ void State::setExploreDistance(int modifier, int divisor) {
 void State::setMinExploreDistance(int modifier, int divisor) {
 	minExploreDistance = calcExploreDistance(modifier, divisor);
 	bug << "set min explore distance at " << minExploreDistance << endl;
+}
+
+void State::setAntIdle(Ant &ant) {
+	Location oLoc = ant.positionNextTurn();
+
+	ant.setIdle();
+
+	Location nLoc = ant.positionNextTurn();
+	
+	gridNextTurn[nLoc.row][nLoc.col].ant++;
+    gridNextTurn[oLoc.row][oLoc.col].ant--;
+}
+
+void State::clearAntQueue(Ant &ant) {
+	Location oLoc = ant.positionNextTurn();
+
+	ant.queue.clear();
+
+	Location nLoc = ant.positionNextTurn();
+	
+	gridNextTurn[nLoc.row][nLoc.col].ant++;
+    gridNextTurn[oLoc.row][oLoc.col].ant--;
 }
