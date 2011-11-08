@@ -52,7 +52,7 @@ struct State
 
 	int attackDistanceBuffer, searchStepLimit, minExploreDistanceFromHill, turnsTillNotAtRisk, maxDefendingAnts;
 	double expLamda;
-	bool useSquareOfPlayers, useExponentialExploring;
+	bool useExponentialExploring;
 
     Timer timer;
     Bug bug;
@@ -147,21 +147,21 @@ struct State
 
 	void clearAntQueue(Ant &ant);
 
-	void State::setAttackDistanceBuffer(int b);
+	void setAttackDistanceBuffer(int b);
 
-	void State::setSearchStepLimit(int l);
+	void setSearchStepLimit(int l);
 
-	void State::setMinExploreDistanceFromHill(int m);
+	void setMinExploreDistanceFromHill(int m);
 
-	void State::setExpLamda(double l);
+	void setExpLamda(double l);
 
-	void State::setTurnsTillNotAtRisk(int t);
+	void setTurnsTillNotAtRisk(int t);
 
-	void State::setMaxDefendingAnts(int a);
+	void setMaxDefendingAnts(int a);
 
-	void State::setUseSquareOfPlayers(bool p);
+	void setUseSquareOfPlayers(bool p);
 
-	void State::setUseExponentialExploring(bool e);
+	void setUseExponentialExploring(bool e);
 
 	// Action functions
 

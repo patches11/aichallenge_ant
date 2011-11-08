@@ -20,8 +20,8 @@ Bot::Bot()
 	defendAntsPerTurn = 2;
 	hillBuffer = 2;
 	defendTurns = 4;
-	exploreDistanceDivisor = 50;
-	minExploreDistanceDivisor = 300;
+	exploreDistanceDivisor = 2000;
+	minExploreDistanceDivisor = 5000;
 	maxTurnsToRetreat = 10;
 	attackDistanceBuffer = 8;
 	searchStepLimit = 550;
@@ -108,13 +108,10 @@ void Bot::playGame(int argc, char *argv[])
 			idleAntsForExcessiveRetreating =argv[++i] == "true" ? true : false;
 		else if (argv[i] == "--useRetreatForKillingAnts")
 			useRetreatForKillingAnts =argv[++i] == "true" ? true : false;
-		else if (argv[i] == "--useSquareOfPlayers")
-			useSquareOfPlayers =argv[++i] == "true" ? true : false;
 		else if (argv[i] == "--useExponentialExploring")
 			useExponentialExploring =argv[++i] == "true" ? true : false;
 	}
-      
-
+    
 	//State configuration
 	state.setExploreDistance(exploreDistanceModifier, exploreDistanceDivisor);
 	state.setMinExploreDistance(minExploreDistanceModifier, minExploreDistanceDivisor);
@@ -124,8 +121,10 @@ void Bot::playGame(int argc, char *argv[])
 	state.setExpLamda(expLamda);
 	state.setTurnsTillNotAtRisk(turnsTillNotAtRisk);
 	state.setMaxDefendingAnts(maxDefendingAnts);
-	state.setUseSquareOfPlayers(useSquareOfPlayers);
 	state.setUseExponentialExploring(useExponentialExploring);
+
+	state.bug << "attackRadius2: " << state.attackradius2 << endl;
+	state.bug << "players: " << state.noPlayers << endl;
 
     endTurn();
 

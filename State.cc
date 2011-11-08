@@ -41,10 +41,6 @@ void State::setMaxDefendingAnts(int a) {
 	maxDefendingAnts = a;
 }
 
-void State::setUseSquareOfPlayers(bool p) {
-	useSquareOfPlayers = p;
-}
-
 void State::setUseExponentialExploring(bool e) {
 	useExponentialExploring = e;
 }
@@ -1093,7 +1089,7 @@ void State::defendHill(int antsPerTurn, double buffer) {
 			}
 
 			// If we have more than maxDefendingAnts defending this hill than go on to the next hill
-			if (defendingAnts.size() >= maxDefendingAnts)
+			if ((int)defendingAnts.size() >= maxDefendingAnts)
 				continue;
 
 			vector<Location> hLocs = validNeighbors(myHills[i]);
@@ -1388,12 +1384,12 @@ Location State::retreatLocation(Ant &ant, Location nearest) {
 
 
 int State::calcExploreDistance(int modifier, int divisor) {
-	int t;
-	
-	if (useSquareOfPlayers)
-		t = (cols*rows/(noPlayers*noPlayers))/divisor;
-	else 
-		t = (cols*rows/(noPlayers))/divisor;
+	int t = (cols*rows)/divisor;
+
+	//if (useSquareOfPlayers)
+	//	t = (cols*rows/(noPlayers*noPlayers))/divisor;
+	//else 
+	//	t = (cols*rows/(noPlayers))/divisor;
 
 	return t + modifier;
 }
