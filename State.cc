@@ -1040,7 +1040,7 @@ vector<Location> State::closestEnemies(Location loc, double buffer) {
 	return closeAnts;
 }
 
-// On very small maps hills may never be considered not at risk and so ants won't be released
+// On very small maps this does not work well
 void State::defendHill(int antsPerTurn, double buffer) {
 
 	vector<int> exclude;
@@ -1089,8 +1089,30 @@ void State::defendHill(int antsPerTurn, double buffer) {
 			}
 
 			// If we have more than maxDefendingAnts defending this hill than go on to the next hill
-			if ((int)defendingAnts.size() >= maxDefendingAnts)
+			if ((int)defendingAnts.size() >= maxDefendingAnts || (int)defendingAnts.size() >= (int)(myAnts.size()/myHills.size()))
 				continue;
+
+			// If there is only one enemy go kill him
+			if (closeAnts.size() == 1) {
+				Ant def;
+				if (defendingAnts.size() > 0)
+					def = (*defendingAnts.back());
+				else
+					def = (*myCloseAnts.back());
+
+				list<Location> path = bfs(def.loc, closestAnt);
+
+				bug << "sending ant at " << def.loc << "to kill ant at " << closestAnt << endl;
+
+				if (! path.empty())
+				{
+					path.pop_front();
+						
+					setAntQueue(def, path, closestAnt);
+				}
+
+				continue;
+			}
 
 			vector<Location> hLocs = validNeighbors(myHills[i]);
 
@@ -1261,11 +1283,11 @@ bool State::willAntDie(Location loc) {
 	if (weakness == 0)
 		return false;
 
-	int min_enemy_weakness = 0;
+	int min_enemy_weakness = -1;
 
 	for(int j = 0;j< (int)enemies.size();j++) {
 		int tWeak = nearbyAnts(enemies[j].loc, enemies[j].owner).size();
-		if(tWeak < min_enemy_weakness)
+		if(min_enemy_weakness == -1 || tWeak < min_enemy_weakness)
 			min_enemy_weakness = tWeak;
 	}
 
@@ -1297,8 +1319,15 @@ vector<Ant> State::nearbyAnts(Location loc, int owner) {
 				continue;
 			if (distanceSq(validNeighborsV[i],loc) < attackradius2+attackDistanceBuffer) {
 				neighbors.push_back(validNeighborsV[i]);
-				if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != owner))
-					close.push_back(Ant(validNeighborsV[i], grid[validNeighborsV[i].row][validNeighborsV[i].col].ant));
+				if (owner == 0) {
+					if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != owner))
+						close.push_back(Ant(validNeighborsV[i], grid[validNeighborsV[i].row][validNeighborsV[i].col].ant));
+				} else {
+					if (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != -1 && (grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != owner) && grid[validNeighborsV[i].row][validNeighborsV[i].col].ant != 0)
+						close.push_back(Ant(validNeighborsV[i], grid[validNeighborsV[i].row][validNeighborsV[i].col].ant));
+					else if (gridNextTurn[validNeighborsV[i].row][validNeighborsV[i].col].ant > 0)
+						close.push_back(Ant(validNeighborsV[i], 0));
+				}
 			}
 		}
 	}
