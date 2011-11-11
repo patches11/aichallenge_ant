@@ -129,7 +129,7 @@ struct Ant
 	}
 
 	bool idle() {
-		return queue.empty() || role == -1;
+		return queue.empty();
 	}
 
 	bool exploring() {
