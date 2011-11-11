@@ -156,12 +156,13 @@ void State::reset()
 	for(int i = 0;i<(int)myAnts.size();i++) {
 		antsMap[myAnts[i].loc] = myAnts[i];
 	}
-	for(map<Location, int>::iterator harIt = hillsAtRisk.begin();harIt != hillsAtRisk.begin();harIt++) {
+	for(map<Location, int>::iterator harIt = hillsAtRisk.begin();harIt != hillsAtRisk.end();harIt++) {
 		if (grid[(*harIt).first.row][(*harIt).first.col].isVisible) {
-			if (grid[(*harIt).first.row][(*harIt).first.col].hillPlayer == -1)
+			if (!grid[(*harIt).first.row][(*harIt).first.col].isHill)
 				(*harIt).second = 0;
-			else if ((*harIt).second > 0)
+			else if ((*harIt).second > 0) {
 				(*harIt).second--;
+			}
 		}
 	}
     myAnts.clear();
