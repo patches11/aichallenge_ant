@@ -542,6 +542,11 @@ bool State::locationEq(Location a, Location b) {
 	return false;
 };
 
+
+// Timeout here? debug:
+// killing hills with idle ants
+// pathfinding from (126, 75) to (82, 121)
+// steps taken: 550
 list<Location> State::reconstruct_path(map<Location, Location> cameFrom, Location prev) {
 	if (cameFrom.count(prev)>0) {
 		list<Location> path = reconstruct_path(cameFrom, cameFrom[prev]);
@@ -618,6 +623,8 @@ public:
 
 /*
 
+	From Wikipedia
+
 function A*(start,goal)
      closedset := the empty set    // The set of nodes already evaluated.
      openset := {start}    // The set of tentative nodes to be evaluated, initially containing the start node
@@ -663,11 +670,6 @@ function A*(start,goal)
          return current_node
 
 */
-// Has some problems; doesn't seem to always find the shortest path
-// I think the problem is with the tentativeIsBetter section
-// Consider limiting steps to ~750
-// data: 170 steps 3ms
-// 1937 steps 62ms
 list<Location> State::bfs(Location start, Location goal) {
 	//typedef priority_queue<Location, vector<Location>, heuristicCompare> mypq_type;
 	//mypq_type openSet (heuristicCompare(rows,cols,goal));
@@ -909,11 +911,11 @@ void State::killHills(vector<Ant*> &ants, vector<Location> &hills, int antsPerHi
 			list<Location> path = bfs((*a).loc, currentHill);
 
 			#ifdef DEBUG
-						list<Location>::iterator it;
-						bug << "kill path: ";
-						for ( it=path.begin() ; it != path.end(); it++ )
-							bug << *it << " ";
-						bug << endl;
+				list<Location>::iterator it;
+				bug << "kill path: ";
+				for ( it=path.begin() ; it != path.end(); it++ )
+					bug << *it << " ";
+				bug << endl;
 			#endif
 
 			if (! path.empty())
@@ -1363,8 +1365,7 @@ Location State::nearestEnemy(Ant &ant) {
 	return ant.loc;
 }
 
-
-//TODO: needs to update gridNextTurn
+// Maybe want to set iDestination here if queue is empty at the beginning
 void State::retreatAntFromNearestEnemy(Ant &ant) {
 	Location nearest = nearestEnemy(ant);
 

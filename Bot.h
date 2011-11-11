@@ -25,7 +25,7 @@ struct Bot
 	double minAntsFoodingToKillPercent, expLamda;
 
 	bool useDefendCounter, exploreUnexplored, idleAntsForExcessiveRetreating, useRetreatForKillingAnts, useSquareOfPlayers, 
-			useExponentialExploring;
+			useExponentialExploring, noMaxTurnsToRetreat;
 };
 
 #endif //BOT_H_

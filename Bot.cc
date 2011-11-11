@@ -3,6 +3,11 @@
 using namespace std;
 
 // Add max distance to kill hill?
+// Should try to route around areas where we will die: flank
+// Remember enemy hills we have seen to kill later
+// We may want to do something so we don't kill too many ants early in the game trying to take out a hill
+// When my hill dies may still have anys defending it and they will stick there.
+// When killing hill we should have some sort of flag like stop retreating, I don't think anything is gained once the ants have massed by waiting vs. Just going at that point.
 
 //constructor
 Bot::Bot()
@@ -42,6 +47,7 @@ Bot::Bot()
 	useRetreatForKillingAnts = true;
 	useSquareOfPlayers = true;
 	useExponentialExploring = true;
+	noMaxTurnsToRetreat = true;
 };
 
 
@@ -122,9 +128,6 @@ void Bot::playGame(int argc, char *argv[])
 	state.setTurnsTillNotAtRisk(turnsTillNotAtRisk);
 	state.setMaxDefendingAnts(maxDefendingAnts);
 	state.setUseExponentialExploring(useExponentialExploring);
-
-	state.bug << "attackRadius2: " << state.attackradius2 << endl;
-	state.bug << "players: " << state.noPlayers << endl;
 
     endTurn();
 
@@ -234,7 +237,7 @@ void Bot::makeMoves()
 	if (state.outOfTime(timeWindowMs))
 		return;
 
-	// Only kill hills if more than 30% of our ants are getting food or exploring
+	// Only kill hills if more than minAntsFoodingToKillPercent% of our ants are getting food or exploring
 	if ((foodCount+exploreCount)/((double)state.myAnts.size()) > minAntsFoodingToKillPercent ) {
 		state.bug << "killing hills with idle ants" << endl;
 		time1 = state.timer.getTime();
@@ -288,9 +291,10 @@ void Bot::makeMoves()
 			state.rerouteAnt(state.myAnts[i]);
 		}
 		if (state.willAntDie(state.myAnts[i].positionNextTurn()) && (state.myAnts[i].isExploring() || state.myAnts[i].isGettingFood() || state.myAnts[i].idle() || (useRetreatForKillingAnts && state.myAnts[i].isAttacking())) && state.xAwayFromMyHills(state.myAnts[i],hillBuffer)) {
-			if (state.myAnts[i].turnsRetreating < maxTurnsToRetreat)
+			if (noMaxTurnsToRetreat || state.myAnts[i].turnsRetreating < maxTurnsToRetreat)
 				state.retreatAntFromNearestEnemy(state.myAnts[i]);
 			else if (idleAntsForExcessiveRetreating) {
+				// I think this is not working, ants seem to die
 				state.setAntIdle(state.myAnts[i]);
 				state.retreatAntFromNearestEnemy(state.myAnts[i]);
 			}
