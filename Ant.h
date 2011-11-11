@@ -20,6 +20,7 @@ struct Ant
 	Location hillDefending;
 	int intRole, role, owner, defendCounter;
 	int turnsRetreating, retreatCount;
+	bool atRisk;
 
 	Ant()
     {
@@ -28,10 +29,12 @@ struct Ant
 		owner = 0;
 		defendCounter = 0;
 		turnsRetreating = retreatCount = 0;
+		atRisk = false;
     };
 
     Ant(Location l)
     {
+		atRisk = false;
         loc = l;
 		role = -1;
 		intRole = -1;
@@ -42,6 +45,7 @@ struct Ant
 
 	Ant(Location l, int o)
     {
+		atRisk = false;
         loc = l;
 		role = -1;
 		intRole = -1;
@@ -108,6 +112,10 @@ struct Ant
 		return role == 1;
 	}
 
+	bool isIdle() {
+		return idle();
+	}
+
 	void setIdle() {
 		role = -1;
 		//set intRole = -1?
@@ -121,7 +129,7 @@ struct Ant
 	}
 
 	bool idle() {
-		return queue.empty();
+		return queue.empty() || role == -1;
 	}
 
 	bool exploring() {

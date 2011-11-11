@@ -298,6 +298,9 @@ void Bot::makeMoves()
 				state.setAntIdle(state.myAnts[i]);
 				state.retreatAntFromNearestEnemy(state.myAnts[i]);
 			}
+			state.myAnts[i].atRisk = true;
+		} else {
+			state.myAnts[i].atRisk = false;
 		}
 		
 		for (int j = i+1;j<(int)state.myAnts.size();j++)

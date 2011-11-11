@@ -156,9 +156,9 @@ void State::reset()
 	for(int i = 0;i<(int)myAnts.size();i++) {
 		antsMap[myAnts[i].loc] = myAnts[i];
 	}
-	for(int i = 0;i<(int)myHills.size();i++)
-		if (hillsAtRisk[myHills[i]] > 0)
-			hillsAtRisk[myHills[i]]--;
+	for(map<Location, int>::iterator harIt = hillsAtRisk.begin();harIt != hillsAtRisk.begin();harIt++)
+		if ((*harIt).second > 0)
+			(*harIt).second--;
     myAnts.clear();
     enemyAnts.clear();
     myHills.clear();
